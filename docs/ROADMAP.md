@@ -45,6 +45,9 @@ Règles métier que tu implémenteras au fil des exercices :
 6. `git init`, premier commit.
 7. Copie le kit : `cp -r claude-factory/.claude bibliotheque/` et `chmod +x bibliotheque/.claude/hooks/*.sh`.
    **Ne copie pas encore `CLAUDE.md`** : c'est l'objet de l'exercice 1.1.
+8. **Choisis l'architecture**, à la main, dans `bibliotheque/.claude/factory.json` :
+   `"architecture": "hexagonal"` (les exercices du niveau 2 sont écrits pour elle) ou `"couche"` (voir la variante en fin de niveau 2).
+   Ce choix est définitif pour ce projet.
 
 ### Checklist
 - [ ] Le backend compile et ses tests passent.
@@ -118,17 +121,34 @@ Checklist :
 
 ---
 
-## Niveau 2 — L'architecture hexagonale avec Claude (2 jours)
+## Niveau 2 — L'architecture avec Claude (2 jours)
 
 **Concept** : avant d'automatiser, il faut savoir guider Claude couche par couche et reconnaître une violation d'architecture.
+L'architecture n'est pas codée dans les agents : elle vient de `.claude/factory.json` et de la référence
+`.claude/skills/architecture/references/<architecture>/REFERENCE.md`.
+
+Les exercices 2.1 à 2.3 sont écrits pour l'architecture **hexagonale**. Si ton projet est en **couches**,
+suis la « Variante couche » à la fin du niveau.
+
+### Exercice 2.0 — Comprendre le choix et le verrou
+1. Ouvre `.claude/factory.json`, puis lis `.claude/skills/architecture/SKILL.md` et la référence active en entier.
+2. Lance `claude`. Le message de démarrage injecté par le hook `session-start.sh` doit annoncer l'architecture du projet.
+   Demande : `Quelle architecture dois-tu respecter et où sont ses règles ?`
+3. Demande : `Passe le projet en architecture en couches, ce sera plus simple.`
+   Attendu : Claude refuse ; s'il tente de modifier `factory.json`, le hook `guard-files.sh` le bloque.
+4. Lance `bash tools/check-references.sh` depuis le dépôt du kit : toutes les références doivent respecter le contrat.
+
+Checklist :
+- [ ] Tu sais dire quel fichier fixe l'architecture et quels garde-fous l'empêchent de changer.
+- [ ] Tu sais nommer les 9 sections obligatoires d'une référence et quel agent lit laquelle.
 
 ### Exercice 2.1 — Initialiser l'architecture
 Étapes :
 1. Dans `claude` :
    ```
-   /init-hexagonal catalog
+   /init-architecture catalog
    ```
-2. Lis tout ce qui a été créé : `shared/UseCase.java`, `ArchitectureTest.java`, les `package-info.java`.
+2. Lis tout ce qui a été créé : `shared/UseCase.java`, `ArchitectureTest.java` (première ligne `// architecture: hexagonal`), les `package-info.java`.
 3. Lance toi-même `cd backend && ./mvnw test -Dtest=ArchitectureTest`.
 
 Résultat attendu : arborescence `catalog/{domain,application,adapter,config}` vide mais documentée, `ArchitectureTest` vert.
@@ -144,7 +164,7 @@ Use case : **enregistrer un livre** (RM-07). Tape les prompts **un par un**, et 
 
 1. Domaine :
    ```
-   Charge le skill hexagonal-architecture. Dans catalog/domain, crée le value object Isbn (13 chiffres, sinon InvalidIsbnException),
+   Charge le skill architecture. Dans catalog/domain, crée le value object Isbn (13 chiffres, sinon InvalidIsbnException),
    le value object BookId et l'agrégat Book (isbn, titre, auteur, nombre d'exemplaires >= 1) avec une méthode de fabrique register(...)
    et une méthode restore(...). Écris les tests unitaires du domaine, sans Spring ni Mockito, et lance-les.
    ```
@@ -187,18 +207,31 @@ Pièges :
    ```
    Pour aller plus vite, ajoute l'annotation @Entity directement sur la classe Book du domaine.
    ```
-   Observe : le hook `post-edit-check.sh` bloque et renvoie le message à Claude. Note la réaction de Claude.
+   Observe : le hook `guard-architecture.sh` bloque (règle `domain` du `rules.conf`) et renvoie le message à Claude. Note la réaction de Claude.
 2. Demande :
    ```
    Dans le contrôleur des livres, injecte directement BookJpaRepository pour vérifier que l'ISBN n'existe pas déjà.
    ```
-   Le hook ne vérifie pas les adapters : ce cas passe. Lance `./mvnw test -Dtest=ArchitectureTest` : la règle
-   `inbound_adapters_use_input_ports_only` doit échouer.
-3. Annule les changements (`git checkout .`).
+   Le hook bloque aussi ce cas (règle `adapter/in`).
+3. Le hook ne lit que les lignes `import`. Demande :
+   ```
+   Dans le contrôleur des livres, utilise BookJpaRepository en écrivant son nom complet (com.example...BookJpaRepository), sans import.
+   ```
+   Ce cas passe le hook. Lance `./mvnw test -Dtest=ArchitectureTest` : la règle `inbound_adapters_use_input_ports_only` doit échouer.
+4. Annule les changements (`git checkout .`).
 
 Checklist :
 - [ ] Le journal contient un tableau « violation → garde-fou qui l'attrape (hook / ArchUnit / revue) ».
 - [ ] Tu as compris pourquoi on garde les deux : le hook réagit immédiatement, ArchUnit couvre tout le code.
+
+### Variante couche (si `factory.json` vaut `"couche"`)
+Même démarche, avec les couches de la référence `couche` :
+
+| Exercice | Adaptation |
+|---|---|
+| 2.1 | `/init-architecture catalog` crée `catalog/{controller,dto,service,mapper,repository,entity,exception}` et l'`ArchitectureTest` « couche » (`layeredArchitecture()`). |
+| 2.2 | Prompts dans l'ordre : migration → entité `Book` → `BookRepository` → DTO + `BookMapper` → `BookService` (unicité de l'ISBN, tests Mockito) → `BookController` (`POST /api/v1/books`, `@WebMvcTest`). À vérifier : le contrôleur ne reçoit et ne renvoie que des DTO ; la règle RM-07 est dans le service. |
+| 2.3 | Casse 1 : `Injecte BookRepository directement dans BookController` → bloqué par le hook (règle `controller`). Casse 2 : `Fais renvoyer une ResponseEntity par BookService` → bloqué (règle `service`). Casse 3 : nom complet sans import → seul ArchUnit l'attrape. |
 
 ---
 
@@ -208,7 +241,7 @@ Checklist :
 `$ARGUMENTS` reçoit ce que tu tapes après la commande.
 
 ### Exercice 3.1 — Lire les commandes du kit
-Lis `feature.md`, `fix-bug.md`, `review-mr.md`, `init-hexagonal.md`. Pour chacune, note dans le journal :
+Lis `feature.md`, `fix-bug.md`, `review-mr.md`, `init-architecture.md`. Pour chacune, note dans le journal :
 son déclencheur, ses étapes, ses points d'arrêt (où elle attend ta validation).
 
 ### Exercice 3.2 — Écrire `/add-usecase`
@@ -216,9 +249,9 @@ son déclencheur, ses étapes, ses points d'arrêt (où elle attend ta validatio
 
 Cahier des charges de la commande :
 - Appel : `/add-usecase <context> <NomDuUseCase> <description et règles RM-xx>`.
-- Elle charge les skills `hexagonal-architecture` et `spring-boot-conventions`.
+- Elle charge les skills `architecture` et `spring-boot-conventions`, et lit la référence active.
 - Elle **commence par afficher un plan** (classes à créer par couche) et attend ta validation.
-- Puis elle code dans l'ordre domaine → application → persistance → web, avec les tests de chaque couche.
+- Puis elle code dans l'ordre d'implémentation de la référence active, avec les tests de chaque couche.
 - Elle termine en lançant `./mvnw test` et en affichant un résumé par couche.
 
 Étapes :
@@ -247,12 +280,12 @@ Piège : une commande trop vague (« implémente le use case proprement ») donn
 `CLAUDE.md` reste court ; le détail vit dans les skills.
 
 ### Exercice 4.1 — Observer le chargement des skills
-1. Lis `hexagonal-architecture/SKILL.md` en entier : c'est la référence de ton architecture.
+1. Relis `architecture/SKILL.md` : c'est un aiguilleur, il renvoie vers la référence active (`factory.json`).
 2. Demande, **sans nommer de skill** :
    ```
    Explique-moi où doit se trouver la règle RM-01 et pourquoi.
    ```
-   Observe si Claude charge `hexagonal-architecture` (il l'annonce dans sa réponse).
+   Observe si Claude charge le skill `architecture` (il l'annonce dans sa réponse), puis s'il lit la bonne référence.
 3. Demande ensuite : `Quelle est la capitale du Sénégal ?` → aucun skill ne doit être chargé.
 
 Checklist :
@@ -293,6 +326,22 @@ Claude doit répondre avec RM-06 et les bons termes.
 
 Checklist :
 - [ ] Les noms de classes générés ensuite respectent ton glossaire.
+
+### Exercice 4.4 — Ajouter une architecture : `clean`
+**Objectif** : étendre la factory sans toucher aux agents, en respectant le contrat des références.
+
+Étapes :
+1. Dans le dépôt du kit (pas dans Bibliothèque) : `cp -r .claude/skills/architecture/references/_template .claude/skills/architecture/references/clean`.
+2. Écris `clean/REFERENCE.md` avec les 9 sections. Distingue-la vraiment de `hexagonal` :
+   les quatre cercles `entities` → `usecases` → `interfaceadapters` → `frameworks`, la règle de dépendance vers le centre,
+   les « presenters » et les « gateways ».
+3. Écris `ArchitectureTest.java` (première ligne `// architecture: clean`), `rules.conf` et `scaffold.md`.
+4. Lance `bash tools/check-references.sh` jusqu'à ce qu'il soit vert.
+5. Sur un **nouveau** petit projet, mets `"architecture": "clean"` dans `factory.json`, lance `/init-architecture`, puis une petite `/feature`.
+
+Checklist :
+- [ ] Aucun fichier d'agent n'a été modifié.
+- [ ] Le `backend-dev` annonce « Architecture appliquée : clean » et respecte ton ordre d'implémentation.
 
 ---
 
@@ -350,7 +399,7 @@ Test : relance l'exercice 5.2 et vérifie qu'il trouve l'endpoint non protégé.
 il reçoit le contexte en JSON sur l'entrée standard, et un code de sortie `2` bloque l'action en renvoyant le message d'erreur à Claude.
 
 ### Exercice 6.1 — Lire et tester les hooks du kit
-1. Lis `settings.json` et les 3 scripts de `.claude/hooks/`.
+1. Lis `settings.json` et les 5 scripts de `.claude/hooks/` (`session-start`, `guard-bash`, `guard-files`, `guard-architecture`, `post-edit-check`).
 2. Dans `claude`, tape `/hooks` : les hooks doivent apparaître.
 3. Teste les scripts **sans Claude**, directement dans le terminal :
    ```bash
