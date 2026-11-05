@@ -1,0 +1,47 @@
+// OPTIONNEL — non requis par la factory ni par la roadmap.
+// Étape de revue IA à intégrer dans un pipeline Jenkins existant (multibranch).
+// Prérequis : credential Jenkins de type "Secret text" avec l'ID anthropic-api-key,
+// et Claude Code installé sur l'agent (curl -fsSL https://claude.ai/install.sh | bash).
+
+pipeline {
+  agent any
+  options { timeout(time: 20, unit: 'MINUTES') }
+
+  stages {
+    stage('Build & tests') {
+      steps {
+        sh 'cd backend && ./mvnw -B verify'
+      }
+    }
+
+    stage('Revue Claude') {
+      when { changeRequest() }   // uniquement sur les MR/PR
+      environment {
+        ANTHROPIC_API_KEY = credentials('anthropic-api-key')
+      }
+      steps {
+        sh """
+          git fetch origin ${env.CHANGE_TARGET}
+          claude -p "Utilise l'agent reviewer pour relire le diff entre origin/${env.CHANGE_TARGET} et HEAD. Respecte CLAUDE.md." \\
+            --allowedTools "Read Glob Grep Bash(git diff:*) Bash(git log:*) Task" \\
+            --max-turns 25 \\
+            --output-format text > claude-review.md
+        """
+        archiveArtifacts artifacts: 'claude-review.md'
+        script {
+          if (readFile('claude-review.md').contains('❌')) {
+            unstable('La revue Claude signale des points bloquants')
+          }
+        }
+      }
+    }
+
+    stage('SonarQube') {
+      steps {
+        withSonarQubeEnv('sonarqube') {
+          sh 'cd backend && ./mvnw -B sonar:sonar'
+        }
+      }
+    }
+  }
+}
