@@ -44,7 +44,9 @@ Règles métier que tu implémenteras au fil des exercices :
 5. Vérifie : `cd backend && ./mvnw test` passe, `cd frontend && npm start` affiche la page Angular.
 6. `git init`, premier commit.
 7. Copie le kit : `cp -r claude-factory/.claude bibliotheque/` et `chmod +x bibliotheque/.claude/hooks/*.sh`.
-   **Ne copie pas encore `CLAUDE.md`** : c'est l'objet de l'exercice 1.1.
+   **Ne copie pas encore `CLAUDE.template.md`** : c'est l'objet de l'exercice 1.1.
+   Pour l'exercice 1.1, retire aussi temporairement `.claude/rules/factory.md` (mets-le de côté), sinon les règles communes
+   s'appliquent déjà. Remets-le à l'étape 6 de l'exercice.
 8. **Choisis l'architecture**, à la main, dans `bibliotheque/.claude/factory.json` :
    `"architecture": "hexagonal"` (les exercices du niveau 2 sont écrits pour elle) ou `"couche"` (voir la variante en fin de niveau 2).
    Ce choix est définitif pour ce projet.
@@ -77,7 +79,7 @@ Règles métier que tu implémenteras au fil des exercices :
    - Où est vérifiée l'unicité de l'ISBN (RM-07) ?
    - Y a-t-il une migration Flyway ? Des tests ?
 5. Annule tout : `git checkout . && git clean -fd`.
-6. Copie maintenant le `CLAUDE.md` du kit à la racine, remplace `<NOM_DU_PROJET>` par `Bibliothèque`
+6. Copie maintenant `CLAUDE.template.md` du kit à la racine sous le nom `CLAUDE.md`, remplace `<NOM_DU_PROJET>` par `Bibliothèque`
    et la description par une phrase sur le domaine. Relance `claude`, retape **le même prompt**.
 7. Compare les deux résultats ligne à ligne dans ton journal.
 
@@ -87,6 +89,8 @@ avec un use case `RegisterBookUseCase`, une entité JPA distincte de l'objet mé
 Checklist :
 - [ ] Le journal liste au moins 4 différences concrètes entre les deux versions.
 - [ ] Tu sais dire quelle ligne de `CLAUDE.md` a provoqué chaque différence.
+
+Vérifie ce qui est chargé avec `/context` : la liste « Memory files » doit montrer `CLAUDE.md` et `.claude/rules/factory.md`.
 
 Pièges : Claude ne relit `CLAUDE.md` qu'au démarrage d'une session. Après l'avoir modifié, relance `claude` (ou démarre une nouvelle conversation).
 

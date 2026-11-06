@@ -42,13 +42,16 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
   Exemples de code, Tests par couche, Grille de revue, Format de réponse finale).
 - **Des agents génériques** : ils lisent `factory.json`, puis la section de la référence qui les concerne
   (le `backend-dev` lit « Ordre d'implémentation », « Règles du développeur », « Format de réponse finale »…).
-- **Un CLAUDE.md générique** : il renvoie vers la référence ; le hook `SessionStart` injecte son résumé.
+- **Des règles communes chargées automatiquement** : `.claude/rules/factory.md` (fourni par le kit, remplacé à chaque mise à jour) ;
+  le `CLAUDE.md` du projet ne contient que ce qui lui est propre. Le hook `SessionStart` injecte le résumé de la référence.
 
 ## Contenu
 
 | Élément | Rôle |
 |---|---|
-| `CLAUDE.md` | Mémoire projet : stack, commandes, règles communes. **À adapter à chaque projet.** |
+| `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet : **à copier sous le nom `CLAUDE.md`** et à compléter (contexte, règles métier, commandes) |
+| `.claude/rules/factory.md` | Règles communes de la factory, chargées automatiquement dans chaque session |
+| `CLAUDE.md` (racine du kit) | Instructions pour travailler **sur le kit lui-même** (pas à copier) |
 | `.claude/factory.json` | **Le choix d'architecture**, verrouillé |
 | `.claude/skills/architecture/` | Aiguilleur (`SKILL.md`) + `references/couche`, `references/hexagonal`, `references/_template` |
 | `.claude/skills/` (autres) | `spring-boot-conventions`, `rest-api-design`, `angular-conventions` (communs à toutes les architectures) |
@@ -56,6 +59,7 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `.claude/commands/` | `/init-architecture`, `/feature`, `/fix-bug`, `/review-mr` |
 | `.claude/hooks/` | `session-start`, `guard-architecture`, `guard-files`, `guard-bash`, `post-edit-check` |
 | `tools/check-references.sh` | Vérifie que chaque référence respecte le contrat |
+| `tools/test-hooks.sh` | Tests automatiques des hooks (61 scénarios : deux architectures, Windows, verrou, Maven) |
 | `docs/ROADMAP.md` | Parcours de montée en compétences |
 | `extras/ci/` | **Optionnel, pour plus tard** : exemples GitLab CI et Jenkins |
 
@@ -66,13 +70,13 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 
 # 2. Copier le kit à la racine du projet
 cp -r claude-factory/.claude  mon-projet/
-cp    claude-factory/CLAUDE.md mon-projet/
+cp    claude-factory/CLAUDE.template.md mon-projet/CLAUDE.md
 chmod +x mon-projet/.claude/hooks/*.sh
 
 # 3. CHOISIR L'ARCHITECTURE — à la main, une seule fois, avant la première session :
 #    éditer mon-projet/.claude/factory.json  →  "architecture": "couche"   (ou "hexagonal")
 
-# 4. Adapter CLAUDE.md (nom du projet, description, commandes)
+# 4. Compléter CLAUDE.md : uniquement ce qui est propre au projet (contexte, règles métier, commandes)
 
 # 5. Lancer
 cd mon-projet && claude
@@ -81,6 +85,19 @@ cd mon-projet && claude
 ```
 
 Sous Windows, ajoute un `.gitattributes` contenant `*.sh text eol=lf` pour que Git ne convertisse pas les scripts.
+
+## Mettre à jour un projet existant avec une nouvelle version du kit
+Le dossier `.claude/` du kit remplace celui du projet, **sauf `factory.json`, qui garde l'architecture choisie** :
+```powershell
+# depuis la racine du projet, le kit étant cloné à côté (..\factory-dev), à jour sur main
+Copy-Item .claude\factory.json $env:TEMP\factory.json.bak
+Remove-Item -Recurse -Force .claude\agents, .claude\commands, .claude\hooks, .claude\skills, .claude\rules -ErrorAction SilentlyContinue
+Copy-Item -Path ..\factory-dev\.claude\* -Destination .claude -Recurse -Force
+Copy-Item $env:TEMP\factory.json.bak .claude\factory.json -Force
+Copy-Item ..\factory-dev\.gitattributes . -Force
+git add --renormalize .
+```
+Puis relire le `CHANGELOG.md` : il indique si le `CLAUDE.md` du projet doit être retouché.
 
 ## Le verrou d'architecture
 | Protection | Effet |
@@ -98,7 +115,7 @@ Un humain peut toujours éditer les fichiers à la main : changer d'architecture
 1. Copier `.claude/skills/architecture/references/_template/` vers `references/<nom>/`.
 2. Remplir les 4 fichiers : `REFERENCE.md` (9 sections, titres exacts), `ArchitectureTest.java`
    (première ligne `// architecture: <nom>`), `rules.conf`, `scaffold.md`.
-3. Vérifier : `bash tools/check-references.sh`.
+3. Vérifier : `bash tools/check-references.sh` puis `bash tools/test-hooks.sh`.
 
 ## Revenir à la v2
 La v2 (factory centrée sur l'architecture hexagonale) est conservée sous le tag `v2.0` :
