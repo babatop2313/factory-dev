@@ -56,10 +56,10 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `.claude/skills/architecture/` | Aiguilleur (`SKILL.md`) + `references/couche`, `references/hexagonal`, `references/_template` |
 | `.claude/skills/` (autres) | `spring-boot-conventions`, `rest-api-design`, `angular-conventions` (communs à toutes les architectures) |
 | `.claude/agents/` | 6 sous-agents génériques |
-| `.claude/commands/` | `/init-architecture`, `/feature`, `/fix-bug`, `/review-mr` |
-| `.claude/hooks/` | `session-start`, `guard-architecture`, `guard-files`, `guard-bash`, `post-edit-check` |
+| `.claude/commands/` | `/init-architecture`, `/update-architecture-test`, `/feature`, `/fix-bug`, `/review-mr` |
+| `.claude/hooks/` | `session-start`, `guard-architecture`, `guard-files`, `guard-bash`, `post-edit-check`, `post-bash-check` (+ `lib.sh`) |
 | `tools/check-references.sh` | Vérifie que chaque référence respecte le contrat |
-| `tools/test-hooks.sh` | Tests automatiques des hooks (61 scénarios : deux architectures, Windows, verrou, Maven) |
+| `tools/test-hooks.sh` | Tests automatiques des hooks (67 scénarios : deux architectures, Windows, verrou, Maven) |
 | `docs/ROADMAP.md` | Parcours de montée en compétences |
 | `extras/ci/` | **Optionnel, pour plus tard** : exemples GitLab CI et Jenkins |
 
@@ -97,7 +97,11 @@ Copy-Item $env:TEMP\factory.json.bak .claude\factory.json -Force
 Copy-Item ..\factory-dev\.gitattributes . -Force
 git add --renormalize .
 ```
-Puis relire le `CHANGELOG.md` : il indique si le `CLAUDE.md` du projet doit être retouché.
+Puis, dans Claude : **`/update-architecture-test`**. Il recopie `ArchitectureTest.java` depuis la référence active,
+avec le bon package (ne jamais le copier à la main : le marqueur `__BASE_PACKAGE__` doit être remplacé partout),
+et lance `./mvnw clean test -Dtest=ArchitectureTest`.
+
+Enfin, relire le `CHANGELOG.md` : il indique si le `CLAUDE.md` du projet doit être retouché.
 
 ## Le verrou d'architecture
 | Protection | Effet |

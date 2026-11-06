@@ -20,6 +20,8 @@
   fichiers protégés) ne surveillent que Write et Edit : un fichier écrit par le shell leur échappe.
 - Le shell sert à compiler, tester, lire l'historique Git et créer des branches ou des commits.
 - Si un hook bloque une action, ne pas chercher à le contourner : corriger, ou signaler le blocage à l'humain.
+- **Après la suppression, le déplacement ou le renommage d'un fichier Java**, compiler et tester avec `./mvnw clean test`
+  (ou `clean compile`) : sinon les `.class` obsolètes de `target/` faussent `ArchitectureTest`, qui analyse les classes compilées.
 
 ## Règles non négociables
 - Respecter la règle de dépendance de la référence d'architecture active. Une violation est toujours bloquante.
@@ -42,6 +44,7 @@
 | Commande | Rôle |
 |---|---|
 | `/init-architecture <module>` | Une fois au démarrage : ArchUnit, squelette du premier module |
+| `/update-architecture-test` | Après une mise à jour du kit : recopie `ArchitectureTest` depuis la référence active |
 | `/feature <besoin>` | Spec → plan → code → tests → revue |
 | `/fix-bug <bug>` | Test qui reproduit → correction → revue |
 | `/review-mr [branche cible]` | Revue des changements de la branche courante |

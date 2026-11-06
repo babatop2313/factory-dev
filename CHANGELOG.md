@@ -1,5 +1,20 @@
 # Changelog
 
+## v3.2.0 — Mise à jour sûre d'ArchitectureTest
+**À faire dans un projet existant** : mettre à jour `.claude/` (README, « Mettre à jour un projet existant »), puis lancer
+`/update-architecture-test`. Aucune retouche du `CLAUDE.md` du projet.
+
+- **Nouvelle commande `/update-architecture-test`** : recopie `ArchitectureTest.java` depuis la référence active, remplace
+  toutes les occurrences de `__BASE_PACKAGE__`, refuse si le projet a été initialisé avec une autre architecture,
+  présente les règles ajoutées ou modifiées, et ne corrige jamais seule une nouvelle violation.
+- **`session-start`** : signale un `ArchitectureTest` qui contient encore `__BASE_PACKAGE__` (ses règles passeraient au vert sans rien vérifier).
+- **Classes compilées obsolètes** : ArchUnit analyse `target/classes` ; après la suppression ou le renommage d'une classe,
+  un `.class` resté dans `target/` fausse le résultat. Désormais :
+  - nouveau hook `post-bash-check.sh` (PostToolUse sur Bash/PowerShell) : rappel non bloquant d'utiliser `clean`
+    après un `rm`, `mv`, `git rm`, `git mv`, `Remove-Item`… sur un fichier ou dossier Java ;
+  - `backend-dev`, `test-writer` et `reviewer` lancent `./mvnw clean test` ; règle ajoutée dans `.claude/rules/factory.md`.
+- `tools/test-hooks.sh` : 67 scénarios.
+
 ## v3.1.0 — Retours du premier test complet (Bibliothèque)
 **À faire dans un projet existant** : mettre à jour `.claude/` (voir README, « Mettre à jour un projet existant »),
 puis **retirer du `CLAUDE.md` du projet** les sections désormais fournies par `.claude/rules/factory.md` :
@@ -26,7 +41,7 @@ puis **retirer du `CLAUDE.md` du projet** les sections désormais fournies par `
   - `guard-files` : `.env.example` n'est plus bloqué ;
   - fonctions communes dans `lib.sh` ; chemins `C:\…`, `C:/…` et `/c/…` (Git Bash) normalisés partout.
 - **Règle de travail** : les fichiers source se créent avec Write/Edit, jamais par le shell (les hooks ne voient que ces outils).
-- **Nouveau** : `tools/test-hooks.sh` (61 scénarios).
+- **Nouveau** : `tools/test-hooks.sh` (67 scénarios).
 
 ## v3.0.0 — Architecture au choix
 - **Abstraction de l'architecture** : nouveau skill aiguilleur `architecture` et références interchangeables
