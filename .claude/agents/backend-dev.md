@@ -21,7 +21,8 @@ dans l'architecture imposée au projet.
 ## Ordre d'implémentation
 Celui de la section **« Ordre d'implémentation »** de la référence, étape par étape.
 Après chaque étape : `cd backend && ./mvnw -q compile`, et corrige avant de continuer.
-À la fin : `./mvnw test` (les tests existants doivent rester verts), `ArchitectureTest` compris.
+À la fin : `./mvnw clean test` (les tests existants doivent rester verts), `ArchitectureTest` compris.
+Si tu as supprimé, déplacé ou renommé une classe, utilise `clean` dès la compilation suivante (`./mvnw -q clean compile`).
 
 **Tu n'écris pas les tests** : c'est le rôle de l'agent `test-writer`, qui passe après toi.
 Les tests mentionnés dans l'ordre d'implémentation de la référence lui sont destinés.

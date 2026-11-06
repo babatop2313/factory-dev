@@ -41,6 +41,12 @@ at=$(find "$search_root" \( -name node_modules -o -name .git -o -name target \) 
 if [ -n "$at" ]; then
   at=$(norm_path "$at")
   marker=$(head -1 "$at" | tr -d '\r' | sed -n 's#^// architecture: *##p')
+  if grep -q '__BASE_PACKAGE__' "$at" 2>/dev/null; then
+    echo
+    echo "⛔ ArchitectureTest INCOMPLET : ${at#"$root"/} contient encore le marqueur __BASE_PACKAGE__."
+    echo "   Les règles concernées analysent un package qui n'existe pas et passent au vert SANS RIEN VÉRIFIER."
+    echo "   Signale-le à l'humain et propose de lancer /update-architecture-test avant toute tâche backend."
+  fi
   if [ -n "$marker" ] && [ "$marker" != "$arch" ]; then
     echo
     echo "⛔ INCOHÉRENCE : ${at#"$root"/} a été généré pour l'architecture « $marker »,"

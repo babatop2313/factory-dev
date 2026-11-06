@@ -133,6 +133,15 @@ chk_out "additionalContext" "wrapper qui ne démarre pas → avertissement" post
 printf '#!/bin/sh\nexit 0\n' > "$T/backend/mvnw"
 chk 0 "compilation OK" post-edit-check.sh "$(jp "$J/catalog/domain/model/Ok.java")"
 
+echo "== post-bash-check"
+chk_out "clean" "rm d'un .java → rappel clean" post-bash-check.sh "$(jc 'rm backend/src/main/java/com/example/library/loan/Triche.java')"
+chk_out "clean" "git mv d'un .java → rappel clean" post-bash-check.sh "$(jc 'git mv src/main/java/a/A.java src/main/java/a/B.java')"
+chk_out "clean" "Remove-Item d'un dossier source (PowerShell)" post-bash-check.sh "$(jc 'Remove-Item -Recurse backend\src\main\java\com\example\library\loan')"
+printf '%s' "$(jc 'ls backend/src/main/java')" | "$H/post-bash-check.sh" >"$T/out" 2>&1
+if [ ! -s "$T/out" ]; then pass=$((pass+1)); echo "  ✓ ls → aucun message"; else fail=$((fail+1)); echo "  ✗ ls → message inattendu"; fi
+printf '%s' "$(jc 'rm -rf backend/target')" | "$H/post-bash-check.sh" >"$T/out" 2>&1
+if [ ! -s "$T/out" ]; then pass=$((pass+1)); echo "  ✓ rm -rf target → aucun message"; else fail=$((fail+1)); echo "  ✗ rm -rf target → message inattendu"; fi
+
 echo "== session-start"
 setarch hexagonal
 chk_out "architecture du projet : hexagonal" "annonce l'architecture (factory.json en CRLF)" session-start.sh '{}'
@@ -146,6 +155,9 @@ setarch couche
 mkdir -p "$T/backend/src/test/java/com/example/library"
 printf '// architecture: hexagonal\r\npackage x;\n' > "$T/backend/src/test/java/com/example/library/ArchitectureTest.java"
 chk_out "INCOHÉRENCE" "ArchitectureTest d'une autre architecture" session-start.sh '{}'
+printf '// architecture: couche\npackage __BASE_PACKAGE__;\n' > "$T/backend/src/test/java/com/example/library/ArchitectureTest.java"
+chk_out "INCOMPLET" "ArchitectureTest avec __BASE_PACKAGE__ oublié" session-start.sh '{}'
+printf '// architecture: hexagonal\r\npackage x;\n' > "$T/backend/src/test/java/com/example/library/ArchitectureTest.java"
 CLAUDE_PROJECT_DIR="$(printf '%s' "$T" | sed 's#^/\(.\)/#\1:/#')" \
   chk_out "INCOHÉRENCE" "racine au format Git Bash / Windows" session-start.sh '{}'
 
