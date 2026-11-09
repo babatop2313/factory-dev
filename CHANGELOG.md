@@ -41,7 +41,7 @@ puis **retirer du `CLAUDE.md` du projet** les sections désormais fournies par `
   - `guard-files` : `.env.example` n'est plus bloqué ;
   - fonctions communes dans `lib.sh` ; chemins `C:\…`, `C:/…` et `/c/…` (Git Bash) normalisés partout.
 - **Règle de travail** : les fichiers source se créent avec Write/Edit, jamais par le shell (les hooks ne voient que ces outils).
-- **Nouveau** : `tools/test-hooks.sh` (67 scénarios).
+- **Nouveau** : `tools/test-hooks.sh` (61 scénarios).
 
 ## v3.0.0 — Architecture au choix
 - **Abstraction de l'architecture** : nouveau skill aiguilleur `architecture` et références interchangeables
