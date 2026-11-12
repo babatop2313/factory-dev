@@ -4,13 +4,14 @@ Une « usine logicielle » pilotée par Claude Code pour un stack **Java/Spring 
 avec une **architecture backend au choix**, fixée une fois pour toutes au démarrage de chaque projet.
 
 ```
- .claude/factory.json  { "architecture": "couche" | "hexagonal" | … }    ← choisi par l'humain, verrouillé
+ .claude/factory.json  { "architecture": "couche" | "hexagonal" | …, "baseBranch": "develop" }  ← choisi par l'humain, verrouillé
           │
           ▼
  skill « architecture » → references/<architecture>/REFERENCE.md           ← la seule référence appliquée
           │
           ▼
  /feature "description"
+   ├─► étape 0      → point de départ vérifié (aucune modification en cours, baseBranch à jour)
    ├─► spec-writer   → docs/specs/<feature>.md (règles RM-xx)
    ├─► architect     → plan découpé selon les couches de la référence
    ├─► backend-dev   → code, dans l'ordre d'implémentation de la référence
@@ -22,7 +23,8 @@ avec une **architecture backend au choix**, fixée une fois pour toutes au déma
  Garde-fous
    ├─ session-start.sh      : injecte le résumé de l'architecture active à chaque session
    ├─ guard-architecture.sh : vérifie les imports à chaque écriture, selon rules.conf de la référence
-   ├─ guard-files / guard-bash : verrou de factory.json, secrets, migrations, git
+   ├─ guard-files / guard-bash : verrou de factory.json, secrets, migrations, git (push, fusion)
+   ├─ guard-mcp-sql.sh      : lecture seule pour le serveur MCP PostgreSQL
    └─ ArchitectureTest      : règles ArchUnit de l'architecture, sur tout le code
 ```
 
@@ -52,56 +54,78 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet : **à copier sous le nom `CLAUDE.md`** et à compléter (contexte, règles métier, commandes) |
 | `.claude/rules/factory.md` | Règles communes de la factory, chargées automatiquement dans chaque session |
 | `CLAUDE.md` (racine du kit) | Instructions pour travailler **sur le kit lui-même** (pas à copier) |
-| `.claude/factory.json` | **Le choix d'architecture**, verrouillé |
+| `.claude/factory.json` | **Les choix du projet** (architecture, branche d'intégration), verrouillés |
+| `.claude/factory-version` | Version du kit installée (remplacée à chaque mise à jour) |
 | `.claude/skills/architecture/` | Aiguilleur (`SKILL.md`) + `references/couche`, `references/hexagonal`, `references/_template` |
 | `.claude/skills/` (autres) | `spring-boot-conventions`, `rest-api-design`, `angular-conventions` (communs à toutes les architectures) |
 | `.claude/agents/` | 6 sous-agents génériques |
-| `.claude/commands/` | `/init-architecture`, `/update-architecture-test`, `/feature`, `/fix-bug`, `/review-mr` |
-| `.claude/hooks/` | `session-start`, `guard-architecture`, `guard-files`, `guard-bash`, `post-edit-check`, `post-bash-check` (+ `lib.sh`) |
+| `.claude/commands/` | `/init-architecture`, `/update-architecture-test`, `/feature`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
+| `.claude/hooks/` | `session-start`, `guard-architecture`, `guard-files`, `guard-bash`, `guard-mcp-sql`, `post-edit-check`, `post-bash-check` (+ `lib.sh`) |
+| `tools/install.sh` | **Installe ou met à jour** le kit dans un projet (Linux, macOS, Windows avec Git Bash) |
 | `tools/check-references.sh` | Vérifie que chaque référence respecte le contrat |
-| `tools/test-hooks.sh` | Tests automatiques des hooks (67 scénarios : deux architectures, Windows, verrou, Maven) |
+| `tools/test-hooks.sh` | Tests automatiques des hooks (100 scénarios : deux architectures, chemins Windows, verrou, Maven, SQL, absence de jq) |
+| `.github/workflows/factory-ci.yml` | CI du kit sur **Ubuntu, macOS et Windows** à chaque PR |
 | `docs/ROADMAP.md` | Parcours de montée en compétences |
+| `docs/ROADMAP-MCP.md` | Parcours MCP : utiliser des serveurs, puis créer le sien |
+| `docs/ROADMAP-v4.md` | Cap suivant : conventions et intégrations (v3.4), multi-IA et plugin (v4) |
 | `extras/ci/` | **Optionnel, pour plus tard** : exemples GitLab CI et Jenkins |
+| `extras/mcp/` | **Optionnel** : serveurs MCP (GitHub, PostgreSQL en lecture seule) et rôle SQL `claude_ro` |
+
+## Prérequis (tous systèmes)
+| | macOS | Linux | Windows |
+|---|---|---|---|
+| Claude Code | ✔ | ✔ | ✔ |
+| bash | fourni (3.2 suffit) | fourni | **Git for Windows** (fournit Git Bash) |
+| jq | `brew install jq` (déjà présent depuis macOS 15) | `sudo apt install jq` / `sudo dnf install jq` | `winget install jqlang.jq` |
+| git | ✔ | ✔ | ✔ |
+
+Les hooks sont des scripts bash lancés par `bash …` : ils n'ont pas besoin du droit d'exécution, et fonctionnent
+même après une copie depuis Windows. Sans jq, les hooks de protection **bloquent** par sécurité et `session-start`
+l'annonce dès l'ouverture de la session.
 
 ## Démarrer un projet
+Le kit est cloné à côté du projet (`factory-dev/` et `mon-projet/` dans le même dossier).
 
+**macOS / Linux / Git Bash :**
 ```bash
-# 1. Prérequis : Claude Code, jq, et sous Windows Git for Windows (les hooks sont des scripts bash)
-
-# 2. Copier le kit à la racine du projet
-cp -r claude-factory/.claude  mon-projet/
-cp    claude-factory/CLAUDE.template.md mon-projet/CLAUDE.md
-chmod +x mon-projet/.claude/hooks/*.sh
-
-# 3. CHOISIR L'ARCHITECTURE — à la main, une seule fois, avant la première session :
-#    éditer mon-projet/.claude/factory.json  →  "architecture": "couche"   (ou "hexagonal")
-
-# 4. Compléter CLAUDE.md : uniquement ce qui est propre au projet (contexte, règles métier, commandes)
-
-# 5. Lancer
+bash factory-dev/tools/install.sh mon-projet --architecture hexagonal   # ou couche ; --base-branch main si besoin
 cd mon-projet && claude
+```
+**Windows (PowerShell)** — le script s'exécute avec le bash de Git for Windows :
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" factory-dev/tools/install.sh mon-projet --architecture hexagonal
+cd mon-projet; claude
+```
+Puis, dans Claude :
+```
 > /init-architecture catalog
 > /feature Enregistrer un livre (ISBN unique, titre, auteur, nombre d'exemplaires)
 ```
-
-Sous Windows, ajoute un `.gitattributes` contenant `*.sh text eol=lf` pour que Git ne convertisse pas les scripts.
+Le script crée `.claude/factory.json` (architecture et branche d'intégration, **verrouillés**), copie `CLAUDE.template.md`
+en `CLAUDE.md` (à compléter : contexte, règles métier, commandes) et complète `.gitattributes`.
 
 ## Mettre à jour un projet existant avec une nouvelle version du kit
-Le dossier `.claude/` du kit remplace celui du projet, **sauf `factory.json`, qui garde l'architecture choisie** :
-```powershell
-# depuis la racine du projet, le kit étant cloné à côté (..\factory-dev), à jour sur main
-Copy-Item .claude\factory.json $env:TEMP\factory.json.bak
-Remove-Item -Recurse -Force .claude\agents, .claude\commands, .claude\hooks, .claude\skills, .claude\rules -ErrorAction SilentlyContinue
-Copy-Item -Path ..\factory-dev\.claude\* -Destination .claude -Recurse -Force
-Copy-Item $env:TEMP\factory.json.bak .claude\factory.json -Force
-Copy-Item ..\factory-dev\.gitattributes . -Force
-git add --renormalize .
+Même commande, **sans** `--architecture` (le script refuse tout changement d'architecture) :
+```bash
+cd factory-dev && git pull && cd ..
+bash factory-dev/tools/install.sh mon-projet
 ```
+Le script remplace les fichiers du kit, **conserve `factory.json`** (en le migrant si besoin vers le format actuel),
+ne touche ni à `settings.local.json` ni au `CLAUDE.md` du projet, et **signale sans les supprimer** les fichiers
+qui n'existent plus dans le kit. Faites-le dans une branche dédiée (`chore/factory-vX.Y.Z`).
+
 Puis, dans Claude : **`/update-architecture-test`**. Il recopie `ArchitectureTest.java` depuis la référence active,
 avec le bon package (ne jamais le copier à la main : le marqueur `__BASE_PACKAGE__` doit être remplacé partout),
 et lance `./mvnw clean test -Dtest=ArchitectureTest`.
 
 Enfin, relire le `CHANGELOG.md` : il indique si le `CLAUDE.md` du projet doit être retouché.
+
+## Serveurs MCP (optionnel)
+- **Utiliser des serveurs** (GitHub, PostgreSQL en lecture seule) : `extras/mcp/README.md`. Les garde-fous sont déjà
+  dans le kit : fusion de PR interdite par tous les chemins, création d'issue ou de PR soumise à accord, hook SQL en lecture seule.
+- **Exposer son application comme serveur MCP** : `/add-mcp-server` installe l'infrastructure (Spring AI, profil
+  `mcp-local` sécurisé) ; les outils se créent ensuite avec `/feature`. Un outil MCP est un adapter entrant :
+  la référence d'architecture dit où il va, et ArchUnit le vérifie comme un contrôleur.
 
 ## Le verrou d'architecture
 | Protection | Effet |

@@ -8,7 +8,7 @@ kit="$(cd "$(dirname "$0")/.." && pwd)"
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
 cp -r "$kit/.claude" "$T/"
-chmod +x "$T"/.claude/hooks/*.sh
+chmod -x "$T"/.claude/hooks/*.sh   # comme après une copie depuis Windows : les hooks sont lancés par « bash », sans droit d'exécution
 export CLAUDE_PROJECT_DIR="$T"
 export TMPDIR="$T/tmp"; mkdir -p "$TMPDIR"
 H="$T/.claude/hooks"
@@ -18,14 +18,14 @@ pass=0; fail=0
 # chk <code attendu> <libellé> <hook> <json>
 chk() {
   local exp=$1 label=$2 hook=$3 json=$4 got
-  printf '%s' "$json" | "$H/$hook" >"$T/out" 2>"$T/err"; got=$?
+  printf '%s' "$json" | bash "$H/$hook" >"$T/out" 2>"$T/err"; got=$?
   if [ "$got" -eq "$exp" ]; then pass=$((pass+1)); echo "  ✓ [$got] $label"
   else fail=$((fail+1)); echo "  ✗ [$got, attendu $exp] $label"; sed 's/^/      /' "$T/err" | head -4; fi
 }
 # chk_out <motif attendu dans stdout> <libellé> <hook> <json>
 chk_out() {
   local pat=$1 label=$2 hook=$3 json=$4
-  printf '%s' "$json" | "$H/$hook" >"$T/out" 2>"$T/err"
+  printf '%s' "$json" | bash "$H/$hook" >"$T/out" 2>"$T/err"
   if grep -q -- "$pat" "$T/out"; then pass=$((pass+1)); echo "  ✓ $label"
   else fail=$((fail+1)); echo "  ✗ $label (sortie attendue : $pat)"; sed 's/^/      /' "$T/out" | head -4; fi
 }
@@ -33,6 +33,7 @@ setarch() { printf '{ "architecture": "%s" }\r\n' "$1" > "$T/.claude/factory.jso
 mk() { mkdir -p "$(dirname "$1")"; printf 'package x;\n%s\nclass A{}\n' "$2" > "$1"; }
 jp() { printf '{"tool_input":{"file_path":"%s"}}' "$1"; }
 jc() { jq -cn --arg c "$1" '{tool_input:{command:$c}}'; }
+jq_sql() { jq -cn --arg q "$1" '{tool_name:"mcp__postgres__execute_sql",tool_input:{sql:$q}}'; }
 win() { printf '%s' "$1" | sed 's#/#\\#g'; }
 
 echo "== guard-architecture : hexagonal"
@@ -112,8 +113,37 @@ chk 0 "push d'une branche feature" guard-bash.sh "$(jc 'git push -u origin featu
 chk 0 "push d'un tag" guard-bash.sh "$(jc 'git push origin v3.1')"
 chk 2 "push --force" guard-bash.sh "$(jc 'git push --force origin feature/x')"
 chk 2 "push +branche (forcé)" guard-bash.sh "$(jc 'git push origin +feature/x')"
+chk 2 "gh pr merge" guard-bash.sh "$(jc 'gh pr merge 4 --squash')"
+chk 2 "glab mr merge" guard-bash.sh "$(jc 'glab mr merge 12')"
+chk 0 "gh pr view (lecture)" guard-bash.sh "$(jc 'gh pr view 4')"
 chk 2 "rm -rf ." guard-bash.sh "$(jc 'rm -rf .')"
 chk 0 "rm -rf target" guard-bash.sh "$(jc 'rm -rf backend/target')"
+
+echo "== guard-mcp-sql : lectures autorisées"
+chk 0 "SELECT simple" guard-mcp-sql.sh "$(jq_sql 'SELECT isbn, title FROM book ORDER BY lower(title)')"
+chk 0 "point-virgule final" guard-mcp-sql.sh "$(jq_sql 'select count(*) from book;')"
+chk 0 "WITH … SELECT" guard-mcp-sql.sh "$(jq_sql 'WITH a AS (SELECT * FROM book) SELECT * FROM a')"
+chk 0 "EXPLAIN SELECT" guard-mcp-sql.sh "$(jq_sql 'EXPLAIN SELECT * FROM book')"
+chk 0 "SHOW" guard-mcp-sql.sh "$(jq_sql 'SHOW server_version')"
+chk 0 "mot-clé dans une chaîne" guard-mcp-sql.sh "$(jq_sql "SELECT * FROM book WHERE title = 'x; DELETE FROM book'")"
+chk 0 "colonne updated_at (contient UPDATE)" guard-mcp-sql.sh "$(jq_sql 'SELECT updated_at, created_at FROM book OFFSET 2')"
+chk 0 "requête sur plusieurs lignes" guard-mcp-sql.sh "$(jq_sql $'SELECT *\r\nFROM book\n\tWHERE available_copies > 0')"
+chk 0 "outil sans SQL (list_schemas)" guard-mcp-sql.sh '{"tool_name":"mcp__postgres__list_schemas","tool_input":{}}'
+echo "== guard-mcp-sql : écritures bloquées"
+chk 2 "DELETE" guard-mcp-sql.sh "$(jq_sql 'DELETE FROM book')"
+chk 2 "insert en minuscules" guard-mcp-sql.sh "$(jq_sql "insert into book values ('x')")"
+chk 2 "deux instructions" guard-mcp-sql.sh "$(jq_sql 'SELECT 1; DROP TABLE book')"
+chk 2 "CTE qui supprime" guard-mcp-sql.sh "$(jq_sql 'WITH d AS (DELETE FROM book RETURNING *) SELECT * FROM d')"
+chk 2 "SELECT … INTO" guard-mcp-sql.sh "$(jq_sql 'SELECT * INTO copie FROM book')"
+chk 2 "EXPLAIN ANALYZE d'une écriture" guard-mcp-sql.sh "$(jq_sql 'EXPLAIN ANALYZE DELETE FROM book')"
+chk 2 "SELECT … FOR UPDATE" guard-mcp-sql.sh "$(jq_sql 'SELECT * FROM book FOR UPDATE')"
+chk 2 "fonction à effet de bord" guard-mcp-sql.sh "$(jq_sql 'SELECT pg_terminate_backend(42)')"
+chk 2 "SET (changement de session)" guard-mcp-sql.sh "$(jq_sql 'SET default_transaction_read_only = off')"
+chk 2 "commentaire qui cache une instruction" guard-mcp-sql.sh "$(jq_sql $'SELECT 1 --\n; DELETE FROM book')"
+chk 2 "faux commentaire dans une chaîne" guard-mcp-sql.sh "$(jq_sql "SELECT '--' ; DELETE FROM book")"
+chk 2 "dollar quoting" guard-mcp-sql.sh "$(jq_sql 'DO $$ BEGIN DELETE FROM book; END $$')"
+chk 2 "chaîne mal fermée" guard-mcp-sql.sh "$(jq_sql "SELECT 'abc ; DELETE FROM book")"
+chk 2 "paramètre query au lieu de sql" guard-mcp-sql.sh '{"tool_input":{"query":"TRUNCATE book"}}'
 
 echo "== post-edit-check"
 setarch hexagonal
@@ -137,14 +167,20 @@ echo "== post-bash-check"
 chk_out "clean" "rm d'un .java → rappel clean" post-bash-check.sh "$(jc 'rm backend/src/main/java/com/example/library/loan/Triche.java')"
 chk_out "clean" "git mv d'un .java → rappel clean" post-bash-check.sh "$(jc 'git mv src/main/java/a/A.java src/main/java/a/B.java')"
 chk_out "clean" "Remove-Item d'un dossier source (PowerShell)" post-bash-check.sh "$(jc 'Remove-Item -Recurse backend\src\main\java\com\example\library\loan')"
-printf '%s' "$(jc 'ls backend/src/main/java')" | "$H/post-bash-check.sh" >"$T/out" 2>&1
+printf '%s' "$(jc 'ls backend/src/main/java')" | bash "$H/post-bash-check.sh" >"$T/out" 2>&1
 if [ ! -s "$T/out" ]; then pass=$((pass+1)); echo "  ✓ ls → aucun message"; else fail=$((fail+1)); echo "  ✗ ls → message inattendu"; fi
-printf '%s' "$(jc 'rm -rf backend/target')" | "$H/post-bash-check.sh" >"$T/out" 2>&1
+printf '%s' "$(jc 'rm -rf backend/target')" | bash "$H/post-bash-check.sh" >"$T/out" 2>&1
 if [ ! -s "$T/out" ]; then pass=$((pass+1)); echo "  ✓ rm -rf target → aucun message"; else fail=$((fail+1)); echo "  ✗ rm -rf target → message inattendu"; fi
 
 echo "== session-start"
 setarch hexagonal
 chk_out "architecture du projet : hexagonal" "annonce l'architecture (factory.json en CRLF)" session-start.sh '{}'
+chk_out "CLAUDE FACTORY v" "affiche la version du kit (factory-version)" session-start.sh '{}'
+chk_out "Branche d'intégration : develop" "baseBranch par défaut" session-start.sh '{}'
+printf '{"architecture":"hexagonal","baseBranch":"main","factoryVersion":"3.2.0"}' > "$T/.claude/factory.json"
+chk_out "Branche d'intégration : main" "baseBranch lu dans factory.json" session-start.sh '{}'
+chk_out "format v3.2" "ancien champ factoryVersion signalé" session-start.sh '{}'
+setarch hexagonal
 chk_out "Architecture active : hexagonale" "injecte le résumé de la référence" session-start.sh '{}'
 mv "$T/.claude/factory.json" "$T/fj"
 chk_out "factory.json est absent" "factory.json absent" session-start.sh '{}'
@@ -160,6 +196,26 @@ chk_out "INCOMPLET" "ArchitectureTest avec __BASE_PACKAGE__ oublié" session-sta
 printf '// architecture: hexagonal\r\npackage x;\n' > "$T/backend/src/test/java/com/example/library/ArchitectureTest.java"
 CLAUDE_PROJECT_DIR="$(printf '%s' "$T" | sed 's#^/\(.\)/#\1:/#')" \
   chk_out "INCOHÉRENCE" "racine au format Git Bash / Windows" session-start.sh '{}'
+
+echo "== sans jq"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) echo "  (ignoré sous Windows : impossible de masquer jq sans masquer bash)" ;;
+  *)
+    nojq="$T/nojq"; mkdir -p "$nojq"
+    for t in bash sh cat tr grep sed awk head dirname printf find cksum cut touch ls; do
+      p=$(command -v "$t" 2>/dev/null) && [ "${p#/}" != "$p" ] && ln -sf "$p" "$nojq/$t"
+    done
+    jqless() { printf '%s' "$3" | PATH="$nojq" "$nojq/bash" "$H/$2" >"$T/out" 2>"$T/err"; }
+    jqless 2 guard-files.sh "$(jp "$T/.claude/factory.json")"; got=$?
+    if [ "$got" -eq 2 ] && grep -q "jq est introuvable" "$T/err"; then pass=$((pass+1)); echo "  ✓ [2] hook de protection sans jq → bloque"
+    else fail=$((fail+1)); echo "  ✗ [$got] hook de protection sans jq devrait bloquer"; fi
+    jqless 0 post-bash-check.sh "$(jc 'rm a.java')"; got=$?
+    if [ "$got" -eq 0 ]; then pass=$((pass+1)); echo "  ✓ [0] hook de confort sans jq → ne fait rien"
+    else fail=$((fail+1)); echo "  ✗ [$got] hook de confort sans jq ne devrait pas bloquer"; fi
+    printf '{}' | PATH="$nojq" "$nojq/bash" "$H/session-start.sh" >"$T/out" 2>&1
+    if grep -q "jq est introuvable" "$T/out"; then pass=$((pass+1)); echo "  ✓ session-start sans jq → avertit"
+    else fail=$((fail+1)); echo "  ✗ session-start sans jq devrait avertir"; fi ;;
+esac
 
 echo
 echo "RÉSULTAT : $pass OK, $fail KO"

@@ -1,0 +1,56 @@
+# CI du kit Claude Factory : prouve que les hooks et les outils fonctionnent sur les trois systèmes.
+# Sous Windows, « shell: bash » utilise le bash de Git pour Windows, comme Claude Code.
+# Sous macOS, /bin/bash est la version 3.2 : toute syntaxe de bash 4+ fait échouer ce job.
+name: factory-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  kit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versions des outils
+        run: |
+          bash --version | head -1
+          jq --version
+          git --version
+
+      - name: Fins de ligne des scripts (LF)
+        run: |
+          if grep -rlI $'\r' .claude/hooks tools --include='*.sh' --include='*.conf'; then
+            echo "Des scripts contiennent des fins de ligne Windows (CRLF)." >&2
+            exit 1
+          fi
+
+      - name: Syntaxe des scripts
+        run: for f in .claude/hooks/*.sh tools/*.sh; do bash -n "$f" || exit 1; done
+
+      - name: Contrat des références d'architecture
+        run: bash tools/check-references.sh
+
+      - name: Tests des hooks
+        run: bash tools/test-hooks.sh
+
+      - name: Installation dans un projet vide puis mise à jour
+        run: |
+          p="$RUNNER_TEMP/projet"
+          mkdir -p "$p"
+          bash tools/install.sh "$p" --architecture hexagonal
+          bash tools/install.sh "$p"
+          test "$(jq -r .architecture "$p/.claude/factory.json")" = hexagonal
+          if bash tools/install.sh "$p" --architecture couche; then
+            echo "Le changement d'architecture aurait dû être refusé." >&2
+            exit 1
+          fi

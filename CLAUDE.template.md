@@ -39,8 +39,8 @@ docs/specs/                                ← une spec et un plan par fonctionn
 ## Commandes
 | Action | Commande |
 |---|---|
-| Compiler le backend | `cd backend && ./mvnw -q compile` |
-| Tests backend | `cd backend && ./mvnw test` |
-| Un seul test | `cd backend && ./mvnw test -Dtest=NomDuTest` |
-| Vérifier l'architecture | `cd backend && ./mvnw test -Dtest=ArchitectureTest` |
+| Compiler le backend | `./mvnw -q compile` (depuis `backend/`) |
+| Tests backend | `./mvnw test` (depuis `backend/`) |
+| Un seul test | `./mvnw test -Dtest=NomDuTest` (depuis `backend/`) |
+| Vérifier l'architecture | `./mvnw test -Dtest=ArchitectureTest` (depuis `backend/`) |
 | Lancer l'API | <commande> |
