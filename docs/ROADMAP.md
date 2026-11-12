@@ -43,8 +43,9 @@ Règles métier que tu implémenteras au fil des exercices :
 4. Ajoute un `docker-compose.yml` à la racine avec un service PostgreSQL 16 (base `library`, port 5432).
 5. Vérifie : `cd backend && ./mvnw test` passe, `cd frontend && npm start` affiche la page Angular.
 6. `git init`, premier commit.
-7. Copie le kit : `cp -r claude-factory/.claude bibliotheque/` et `chmod +x bibliotheque/.claude/hooks/*.sh`.
-   **Ne copie pas encore `CLAUDE.template.md`** : c'est l'objet de l'exercice 1.1.
+7. Installe le kit : `bash factory-dev/tools/install.sh bibliotheque --architecture hexagonal`
+   (sous Windows, avec le bash de Git for Windows ; voir le README).
+   **Supprime le `CLAUDE.md` que le script vient de créer** : l'écrire toi-même est l'objet de l'exercice 1.1.
    Pour l'exercice 1.1, retire aussi temporairement `.claude/rules/factory.md` (mets-le de côté), sinon les règles communes
    s'appliquent déjà. Remets-le à l'étape 6 de l'exercice.
 8. **Choisis l'architecture**, à la main, dans `bibliotheque/.claude/factory.json` :
@@ -433,7 +434,7 @@ Tests :
 
 Cahier des charges :
 - script `.claude/hooks/tests-must-pass.sh`, déclaré sur l'événement `Stop` (sans matcher) ;
-- il lance `cd backend && ./mvnw -q test` ;
+- il lance `./mvnw -q test` depuis `backend/` ;
 - si les tests échouent : `exit 2` avec les 20 premières lignes d'erreur (Claude reprend alors le travail) ;
 - **important** : lis le champ `stop_hook_active` du JSON reçu. S'il vaut `true`, sors avec `exit 0`,
   sinon tu risques une boucle infinie.

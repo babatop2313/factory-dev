@@ -1,5 +1,51 @@
 # Changelog
 
+## v3.3.0 — Tous les systèmes, et MCP
+**À faire dans un projet existant** :
+1. Mettre à jour avec le nouveau script, dans une branche dédiée : `bash ../factory-dev/tools/install.sh .`
+   (sous Windows, avec le bash de Git for Windows). Il migre `factory.json` : `factoryVersion` retiré, `baseBranch` ajouté
+   (`develop` par défaut ; vérifiez que c'est bien votre branche d'intégration).
+2. Installer **jq** s'il manque (voir le README) : sans lui, les hooks de protection bloquent désormais par sécurité.
+3. Architecture `couche` uniquement : lancer `/update-architecture-test` (nouvelle couche `Mcp` dans `ArchitectureTest`).
+4. Si le projet avait des règles MCP dans `.claude/settings.local.json`, les retirer : elles sont maintenant dans `settings.json`.
+
+### Portabilité (Linux, macOS, Windows)
+- **Hooks lancés par `bash …`** dans `settings.json` : plus besoin du droit d'exécution (perdu lors d'une copie depuis Windows ou d'un zip).
+- **jq vérifié** : un hook de protection sans jq bloque au lieu de tout laisser passer ; `session-start` l'annonce avec
+  la commande d'installation pour chaque système.
+- **`tools/install.sh`** : installation et mise à jour du kit (refuse un changement d'architecture, conserve `factory.json`,
+  signale sans les supprimer les fichiers devenus inutiles, complète `.gitattributes`). Remplace les copies manuelles.
+- **CI GitHub Actions** (`.github/workflows/factory-ci.yml`) sur Ubuntu, macOS (bash 3.2) et Windows (Git Bash) :
+  fins de ligne, syntaxe, contrat des références, tests des hooks, installation puis mise à jour.
+- Commandes Maven formulées de façon neutre (« `./mvnw …` depuis `backend/` ») ; README avec les deux variantes
+  (bash et PowerShell) ; règles de portabilité dans `factory.md` et dans le `CLAUDE.md` du kit.
+
+### Version et point de départ
+- **La version du kit sort de `factory.json`** (issue #5) : elle est dans `.claude/factory-version`, remplacée à chaque mise à jour.
+  `factory.json` ne contient plus que les choix du projet : `architecture` et **`baseBranch`**. `session-start` affiche
+  la version et la branche d'intégration, et signale l'ancien champ.
+- **`/feature` vérifie le point de départ** avant la spec : aucune modification non commitée, branche courante = `baseBranch`,
+  `baseBranch` à jour par rapport au dépôt distant. Sinon elle s'arrête et explique ; elle ne corrige jamais seule.
+
+### MCP
+- **`extras/mcp/`** (optionnel) : blocs `.mcp.json` pour GitHub et PostgreSQL (Docker ou pipx), rôle SQL `claude_ro`
+  en lecture seule, guide par système. Aucun secret : uniquement des variables d'environnement.
+- **Garde-fous dans `settings.json`** : `deny` sur la fusion de PR (outil MCP, `gh pr merge`, `glab mr merge`),
+  `ask` sur la création d'issue, de PR, de commentaire et de fichier. `guard-bash` bloque aussi les fusions par le shell.
+- **Hook `guard-mcp-sql.sh`** (PreToolUse sur `mcp__postgres__.*`) : une seule instruction de lecture, aucun mot-clé
+  d'écriture (y compris dans une CTE, un `SELECT … INTO` ou un `EXPLAIN ANALYZE`), aucun commentaire, aucun `$$`,
+  aucune fonction à effet de bord.
+- **Nouvelle commande `/add-mcp-server`** : installe l'infrastructure validée sur Bibliothèque (Spring AI, Streamable HTTP,
+  profil `mcp-local` limité à 127.0.0.1, filtres Origin et Host, refus de démarrer avec `prod` ou une adresse non locale,
+  tests 401/403). Ne crée aucun outil : ils passent par `/feature`.
+- **Références** : emplacement des outils MCP (`adapter.in.mcp` en hexagonal, `<feature>/mcp` en couche), exemple de code,
+  tests et points de revue. Couche : nouvelle couche `Mcp` dans `ArchitectureTest` et règle `mcp` dans `rules.conf`.
+- **`factory.md`** : section « Serveurs MCP » ; règle sur les données de développement (`docs/dev/`, jamais `db/migration/`).
+
+### Tests et documentation
+- `tools/test-hooks.sh` : 100 scénarios (SQL, fusions, version, `baseBranch`, absence de jq) ; hooks lancés sans droit d'exécution.
+- Nouveaux documents : `docs/ROADMAP-MCP.md`, `docs/ROADMAP-v4.md`.
+
 ## v3.2.0 — Mise à jour sûre d'ArchitectureTest
 **À faire dans un projet existant** : mettre à jour `.claude/` (README, « Mettre à jour un projet existant »), puis lancer
 `/update-architecture-test`. Aucune retouche du `CLAUDE.md` du projet.
