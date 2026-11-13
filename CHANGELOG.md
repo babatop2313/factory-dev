@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.3.1 — Retours du niveau 2 MCP (Bibliothèque)
+Documentation uniquement : rien à faire dans un projet existant (mise à jour facultative avec `tools/install.sh`).
+- `extras/mcp/postgres-readonly-role.sql` : se connecter à la base du projet (pas à `postgres`), **trouver** le propriétaire
+  des tables au lieu de le supposer, pièges de pgAdmin (transaction unique, seul le dernier résultat affiché), vérifications.
+- `extras/mcp/README.md` : piège des variables d'environnement sous Windows (Windows Terminal, IDE), choix de l'option
+  d'approbation d'un serveur, vérification de l'utilisateur réellement connecté.
+- `docs/ROADMAP-MCP.md` : leçons du niveau 2, validé sur Bibliothèque (forcer l'appel pour tester le hook, écriture cachée dans une CTE).
+
 ## v3.3.0 — Tous les systèmes, et MCP
 **À faire dans un projet existant** :
 1. Mettre à jour avec le nouveau script, dans une branche dédiée : `bash ../factory-dev/tools/install.sh .`

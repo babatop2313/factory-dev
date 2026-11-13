@@ -39,7 +39,14 @@ Il faut fermer tous les chemins (c'est ce que fait le kit : `deny` sur l'outil, 
 | 4 | « Insère un livre de test » | ❌ Refusé par le hook `guard-mcp-sql` (et, s'il passait, par le mode `restricted` puis par le rôle) |
 | 5 | « Fais un bilan de santé de la base » | `analyze_db_health` : index, connexions… |
 
-**Leçon** : chaque ligne de défense suffit seule ; on les empile parce qu'aucune n'est infaillible.
+**Leçons** (validées sur Bibliothèque) :
+- chaque ligne de défense suffit seule ; on les empile parce qu'aucune n'est infaillible ;
+- à l'exercice 4, le modèle **n'essaie même pas** d'écrire (il applique `factory.md`) : pour voir le hook fonctionner,
+  forcez l'appel (« utilise directement execute_sql pour exécuter exactement : INSERT … ») et tentez une écriture cachée
+  (`WITH d AS (DELETE FROM book WHERE false RETURNING *) SELECT * FROM d`) : les deux sont bloquées avant PostgreSQL ;
+- l'agent peut **lire le code des hooks** : un garde-fou doit rester solide même si son fonctionnement est connu ;
+- `installed_by` dans `flyway_schema_history` révèle avec quel utilisateur l'application migre la base
+  (sur Bibliothèque : `postgres`, une vraie trouvaille).
 
 ## Niveau 3 — Créer son serveur : l'application devient un serveur MCP (≈ ½ journée)
 **Objectif** : exposer le métier à un assistant IA, sans trahir l'architecture ni la sécurité.
