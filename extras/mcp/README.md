@@ -39,6 +39,13 @@ export FACTORY_DB_RO_URI="postgresql://claude_ro:<mot_de_passe>@localhost:5432/<
 [Environment]::SetEnvironmentVariable("GITHUB_MCP_TOKEN", "github_pat_…", "User")
 [Environment]::SetEnvironmentVariable("FACTORY_DB_RO_URI", "postgresql://claude_ro:<mot_de_passe>@localhost:5432/<base>", "User")
 ```
+> ⚠ Une variable « User » n'est vue que par les programmes **lancés après** sa création. Un nouvel onglet de
+> Windows Terminal, ou un terminal de VS Code / IntelliJ, hérite de l'application **déjà ouverte** : fermez-la
+> complètement (toutes ses fenêtres), ou rechargez la variable dans la session en cours avant de lancer `claude` :
+> ```powershell
+> $env:FACTORY_DB_RO_URI = [Environment]::GetEnvironmentVariable("FACTORY_DB_RO_URI", "User")
+> ```
+> Symptôme dans `/mcp` : *Missing environment variables: FACTORY_DB_RO_URI*.
 
 ## 3. GitHub : moindre privilège
 - Préférez un jeton **fine-grained**, limité aux dépôts du projet, avec les seuls droits nécessaires
@@ -60,5 +67,10 @@ Notes par système pour la variante Docker :
 - **Linux** : ajoutez `"--network=host"` juste après `"--rm"` dans `args`, ou utilisez la variante `pipx`.
 
 ## 5. Vérifier
-Relancez Claude Code à la racine du projet, puis `/mcp` : chaque serveur doit être **connected**.
+Relancez Claude Code à la racine du projet. Au premier lancement, approuvez chaque serveur avec **« Use this MCP server »** :
+n'utilisez pas « … and all future MCP servers in this project », qui approuverait aussi tout serveur ajouté plus tard
+au `.mcp.json` par un commit. Puis `/mcp` : chaque serveur doit être **connected**.
+
+Pour PostgreSQL, demandez à Claude : « Lance `SELECT current_user, current_setting('default_transaction_read_only')` ».
+Réponse attendue : `claude_ro` et `on`. Toute autre réponse signifie que `FACTORY_DB_RO_URI` vise le mauvais utilisateur.
 Exercices guidés : `docs/ROADMAP-MCP.md` du kit.
