@@ -2,7 +2,8 @@
 
 > Modèle de la Claude Factory. **À copier à la racine du projet sous le nom `CLAUDE.md`**, puis à compléter.
 > Ne contient que ce qui est propre au projet : les règles communes de la factory sont dans
-> `.claude/rules/factory.md` (chargé automatiquement) et l'architecture dans `.claude/factory.json`.
+> `.claude/rules/factory.md` (chargé automatiquement), l'architecture dans `.claude/factory.json`, et les conventions
+> et intégrations (Redis, Kafka…) dans `.claude/stack.json`.
 > Garder ce fichier court (< 100 lignes). Supprimer ce paragraphe une fois le fichier rempli.
 
 ## Contexte
@@ -16,7 +17,9 @@
 | RM-01 | <règle métier> |
 
 ## Stack
-- Backend : Java 21, Spring Boot <version>, Spring Security (JWT), Spring Data JPA, Flyway, PostgreSQL, ArchUnit
+> Les technologies branchées (PostgreSQL, Redis…) et les options de conventions sont déclarées dans `.claude/stack.json` :
+> ne pas les répéter ici. Indiquer seulement les versions et ce qui sort de la factory.
+- Backend : Java 21, Spring Boot <version>, Spring Security (JWT), ArchUnit
 - Tests : JUnit 5, AssertJ, Mockito, Testcontainers
 - Frontend : <Angular x / aucun pour l'instant>
 

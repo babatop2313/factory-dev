@@ -254,7 +254,7 @@ son déclencheur, ses étapes, ses points d'arrêt (où elle attend ta validatio
 
 Cahier des charges de la commande :
 - Appel : `/add-usecase <context> <NomDuUseCase> <description et règles RM-xx>`.
-- Elle charge les skills `architecture` et `spring-boot-conventions`, et lit la référence active.
+- Elle charge les skills `architecture` et `conventions` (et `integrations` si une technologie est touchée), et lit la référence active.
 - Elle **commence par afficher un plan** (classes à créer par couche) et attend ta validation.
 - Puis elle code dans l'ordre d'implémentation de la référence active, avec les tests de chaque couche.
 - Elle termine en lançant `./mvnw test` et en affichant un résumé par couche.

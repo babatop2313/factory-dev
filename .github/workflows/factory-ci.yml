@@ -50,6 +50,7 @@ jobs:
           bash tools/install.sh "$p" --architecture hexagonal
           bash tools/install.sh "$p"
           test "$(jq -r .architecture "$p/.claude/factory.json")" = hexagonal
+          test "$(jq -r .profile "$p/.claude/stack.json")" = top
           if bash tools/install.sh "$p" --architecture couche; then
             echo "Le changement d'architecture aurait dû être refusé." >&2
             exit 1
