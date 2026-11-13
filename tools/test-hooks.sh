@@ -29,6 +29,7 @@ chk_out() {
   if grep -q -- "$pat" "$T/out"; then pass=$((pass+1)); echo "  ✓ $label"
   else fail=$((fail+1)); echo "  ✗ $label (sortie attendue : $pat)"; sed 's/^/      /' "$T/out" | head -4; fi
 }
+setstack() { printf '{ "profile": "top", "integrations": [%s], "conventions": {} }\r\n' "$1" > "$T/.claude/stack.json"; }
 setarch() { printf '{ "architecture": "%s" }\r\n' "$1" > "$T/.claude/factory.json"; }   # \r\n : fichier façon Windows
 mk() { mkdir -p "$(dirname "$1")"; printf 'package x;\n%s\nclass A{}\n' "$2" > "$1"; }
 jp() { printf '{"tool_input":{"file_path":"%s"}}' "$1"; }
@@ -73,6 +74,49 @@ mk "$J/catalog/entity/B.java" 'import com.example.library.catalog.dto.BookRespon
 chk 2 "entity → dto" guard-architecture.sh "$(jp "$J/catalog/entity/B.java")"
 mk "$J/catalog/repository/R.java" $'import org.springframework.data.jpa.repository.JpaRepository;\nimport com.example.library.catalog.entity.Book;'
 chk 0 "repository → Spring Data + entity" guard-architecture.sh "$(jp "$J/catalog/repository/R.java")"
+
+echo "== guard-architecture : intégrations (hexagonal)"
+setarch hexagonal
+setstack '"postgresql", "redis", "kafka", "mail"'
+mk "$J/catalog/adapter/out/cache/BookCache.java" 'import org.springframework.data.redis.core.StringRedisTemplate;'
+chk 0 "redis dans adapter/out/cache" guard-architecture.sh "$(jp "$J/catalog/adapter/out/cache/BookCache.java")"
+mk "$J/catalog/application/usecase/Cached.java" 'import org.springframework.data.redis.core.StringRedisTemplate;'
+chk 2 "redis dans un use case" guard-architecture.sh "$(jp "$J/catalog/application/usecase/Cached.java")"
+mk "$J/config/RedisConfig.java" 'import org.springframework.data.redis.connection.RedisConnectionFactory;'
+chk 0 "redis dans config (toujours autorisé)" guard-architecture.sh "$(jp "$J/config/RedisConfig.java")"
+mk "$J/catalog/application/usecase/Anno.java" '    @Cacheable("books")'
+chk 2 "@Cacheable sur un use case" guard-architecture.sh "$(jp "$J/catalog/application/usecase/Anno.java")"
+mk "$J/catalog/adapter/out/persistence/Anno2.java" '    @Cacheable("books")'
+chk 0 "@Cacheable sur l'adapter de persistance" guard-architecture.sh "$(jp "$J/catalog/adapter/out/persistence/Anno2.java")"
+mk "$J/catalog/adapter/in/messaging/Listener.java" 'import org.springframework.kafka.annotation.KafkaListener;'
+chk 0 "kafka dans adapter/in/messaging" guard-architecture.sh "$(jp "$J/catalog/adapter/in/messaging/Listener.java")"
+mk "$J/catalog/adapter/out/messaging/Pub.java" 'import org.springframework.kafka.core.KafkaTemplate;'
+chk 0 "kafka dans adapter/out/messaging" guard-architecture.sh "$(jp "$J/catalog/adapter/out/messaging/Pub.java")"
+mk "$J/catalog/adapter/in/web/Pub2.java" 'import org.springframework.kafka.core.KafkaTemplate;'
+chk 2 "kafka dans un contrôleur" guard-architecture.sh "$(jp "$J/catalog/adapter/in/web/Pub2.java")"
+mk "$J/loan/adapter/out/notification/Mailer.java" 'import org.springframework.mail.javamail.JavaMailSender;'
+chk 0 "mail dans adapter/out/notification" guard-architecture.sh "$(jp "$J/loan/adapter/out/notification/Mailer.java")"
+mk "$J/catalog/adapter/out/persistence/BookEntity.java" 'import jakarta.persistence.Entity;'
+chk 0 "JPA dans adapter/out/persistence" guard-architecture.sh "$(jp "$J/catalog/adapter/out/persistence/BookEntity.java")"
+mk "$J/catalog/adapter/in/web/Leak.java" 'import jakarta.persistence.EntityNotFoundException;'
+chk 2 "JPA dans un contrôleur" guard-architecture.sh "$(jp "$J/catalog/adapter/in/web/Leak.java")"
+setstack '"postgresql"'
+chk 0 "kafka non déclaré dans stack.json : règle inactive" guard-architecture.sh "$(jp "$J/catalog/adapter/in/web/Pub2.java")"
+
+echo "== guard-architecture : intégrations (couche)"
+setarch couche
+setstack '"postgresql", "redis", "mail"'
+mk "$J/catalog/cache/BookCache.java" 'import org.springframework.data.redis.core.StringRedisTemplate;'
+chk 0 "redis dans cache" guard-architecture.sh "$(jp "$J/catalog/cache/BookCache.java")"
+mk "$J/catalog/service/S2.java" 'import org.springframework.data.redis.core.StringRedisTemplate;'
+chk 2 "redis dans un service" guard-architecture.sh "$(jp "$J/catalog/service/S2.java")"
+mk "$J/catalog/entity/Book2.java" 'import jakarta.persistence.Entity;'
+chk 0 "JPA dans entity (rôle persistance, 2e segment)" guard-architecture.sh "$(jp "$J/catalog/entity/Book2.java")"
+mk "$J/loan/notification/Mailer.java" 'import org.springframework.mail.SimpleMailMessage;'
+chk 0 "mail dans notification" guard-architecture.sh "$(jp "$J/loan/notification/Mailer.java")"
+mk "$J/loan/service/S3.java" 'import org.springframework.mail.SimpleMailMessage;'
+chk 2 "mail dans un service" guard-architecture.sh "$(jp "$J/loan/service/S3.java")"
+setstack '"postgresql"'
 
 echo "== guard-files"
 chk 2 "édition de factory.json" guard-files.sh "$(jp "$T/.claude/factory.json")"
@@ -196,6 +240,20 @@ chk_out "INCOMPLET" "ArchitectureTest avec __BASE_PACKAGE__ oublié" session-sta
 printf '// architecture: hexagonal\r\npackage x;\n' > "$T/backend/src/test/java/com/example/library/ArchitectureTest.java"
 CLAUDE_PROJECT_DIR="$(printf '%s' "$T" | sed 's#^/\(.\)/#\1:/#')" \
   chk_out "INCOHÉRENCE" "racine au format Git Bash / Windows" session-start.sh '{}'
+
+echo "== session-start : stack"
+setarch hexagonal
+setstack '"postgresql", "redis"'
+chk_out "redis (non testée)" "intégration active annoncée avec son statut" session-start.sh '{}'
+chk_out "postgresql (testée)" "intégration testée annoncée" session-start.sh '{}'
+chk_out "profil « top »" "profil de conventions annoncé" session-start.sh '{}'
+setstack '"inconnue"'
+chk_out "aucune référence" "intégration sans référence signalée" session-start.sh '{}'
+printf '{ "profile": "absent", "integrations": [] }' > "$T/.claude/stack.json"
+chk_out "n'existe pas" "profil inconnu signalé" session-start.sh '{}'
+rm -f "$T/.claude/stack.json"
+chk_out "stack.json est absent" "projet sans stack.json (≤ v3.3)" session-start.sh '{}'
+setstack '"postgresql"'
 
 echo "== sans jq"
 case "$(uname -s)" in

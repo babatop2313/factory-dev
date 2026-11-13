@@ -1,5 +1,38 @@
 # Changelog
 
+## v3.4.0 — Conventions et intégrations
+**À faire dans un projet existant** :
+1. Mettre à jour avec `tools/install.sh`, dans une branche dédiée. Le script crée `.claude/stack.json`
+   (profil `top`, intégration `postgresql`) et supprime l'ancien skill `spring-boot-conventions`.
+   **Relire `stack.json`** : ajouter les intégrations déjà utilisées par le projet, et les options qui s'écartent du profil.
+2. Architecture `couche` uniquement : `/update-architecture-test` (couches `Listener` et `Infra` ajoutées).
+
+### Conventions
+- Le skill `spring-boot-conventions` est remplacé par le skill **`conventions`** : un **socle** non négociable,
+  des **profils** (premier profil : `top`, construit à partir de ce qui a été validé sur Bibliothèque) et des **options**
+  (`mapping` : manuel / mapstruct ; `lombok` : interdit / hors-domaine ; `errors` : problem-detail ; `ids` : uuid / sequence).
+- Priorités : architecture > socle > options du projet > profil.
+
+### Intégrations
+- Nouveau skill **`integrations`** : une référence par technologie, avec un contrat de 12 sections, un statut
+  (`testée` / `non testée`) et un `rules.conf`. Premières références : **postgresql** (testée), **redis**, **mail**,
+  **stockage-objet**, **rabbitmq**, **kafka** (non testées), plus `_template`.
+- **Rôles techniques** : vocabulaire unique (`skills/integrations/roles.conf`) ; chaque architecture déclare où va chaque
+  rôle (`roles.conf` + sous-section « Rôles techniques »). Couche : nouvelles couches `Listener` et `Infra` dans `ArchitectureTest`.
+- **`.claude/stack.json`** : profil, options, intégrations actives ; modifiable uniquement avec l'accord de l'humain (règle `ask`).
+- **Commande `/add-integration <techno>`** : dépendances, configuration par variables d'environnement, Testcontainers,
+  santé, déclaration dans `stack.json`.
+
+### Hooks et outils
+- `guard-architecture.sh` applique aussi le `rules.conf` de chaque intégration active : une bibliothèque d'intégration
+  n'est acceptée que dans les packages de ses rôles ou dans `config`.
+- `session-start.sh` annonce la stack : profil, options, intégrations actives avec leur statut et leur résumé.
+- `tools/install.sh` conserve `stack.json`, le crée s'il manque, et supprime les fichiers retirés du kit
+  (`tools/removed-files.txt`).
+- `tools/check-references.sh` vérifie aussi les rôles des architectures, les intégrations, les conventions et le `stack.json`.
+- `tools/test-hooks.sh` : 123 scénarios.
+- Agents : `architect`, `backend-dev`, `test-writer` et `reviewer` chargent `conventions` et `integrations`.
+
 ## v3.3.1 — Retours du niveau 2 MCP (Bibliothèque)
 Documentation uniquement : rien à faire dans un projet existant (mise à jour facultative avec `tools/install.sh`).
 - `extras/mcp/postgres-readonly-role.sql` : se connecter à la base du projet (pas à `postgres`), **trouver** le propriétaire

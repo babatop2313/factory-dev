@@ -56,14 +56,17 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `CLAUDE.md` (racine du kit) | Instructions pour travailler **sur le kit lui-même** (pas à copier) |
 | `.claude/factory.json` | **Les choix du projet** (architecture, branche d'intégration), verrouillés |
 | `.claude/factory-version` | Version du kit installée (remplacée à chaque mise à jour) |
+| `.claude/stack.json` | **La stack du projet** : profil et options de conventions, intégrations actives (modifiable avec accord) |
 | `.claude/skills/architecture/` | Aiguilleur (`SKILL.md`) + `references/couche`, `references/hexagonal`, `references/_template` |
-| `.claude/skills/` (autres) | `spring-boot-conventions`, `rest-api-design`, `angular-conventions` (communs à toutes les architectures) |
+| `.claude/skills/conventions/` | Socle non négociable, profil `top`, options (mapping, lombok, errors, ids) |
+| `.claude/skills/integrations/` | Une référence par technologie (postgresql, redis, mail, stockage-objet, rabbitmq, kafka) + vocabulaire des rôles |
+| `.claude/skills/` (autres) | `rest-api-design`, `angular-conventions` |
 | `.claude/agents/` | 6 sous-agents génériques |
-| `.claude/commands/` | `/init-architecture`, `/update-architecture-test`, `/feature`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
+| `.claude/commands/` | `/init-architecture`, `/update-architecture-test`, `/feature`, `/add-integration`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
 | `.claude/hooks/` | `session-start`, `guard-architecture`, `guard-files`, `guard-bash`, `guard-mcp-sql`, `post-edit-check`, `post-bash-check` (+ `lib.sh`) |
 | `tools/install.sh` | **Installe ou met à jour** le kit dans un projet (Linux, macOS, Windows avec Git Bash) |
-| `tools/check-references.sh` | Vérifie que chaque référence respecte le contrat |
-| `tools/test-hooks.sh` | Tests automatiques des hooks (100 scénarios : deux architectures, chemins Windows, verrou, Maven, SQL, absence de jq) |
+| `tools/check-references.sh` | Vérifie le contrat des architectures, intégrations, conventions et du `stack.json` |
+| `tools/test-hooks.sh` | Tests automatiques des hooks (123 scénarios : architectures, intégrations, chemins Windows, verrou, Maven, SQL, absence de jq) |
 | `.github/workflows/factory-ci.yml` | CI du kit sur **Ubuntu, macOS et Windows** à chaque PR |
 | `docs/ROADMAP.md` | Parcours de montée en compétences |
 | `docs/ROADMAP-MCP.md` | Parcours MCP : utiliser des serveurs, puis créer le sien |
@@ -119,6 +122,32 @@ avec le bon package (ne jamais le copier à la main : le marqueur `__BASE_PACKAG
 et lance `./mvnw clean test -Dtest=ArchitectureTest`.
 
 Enfin, relire le `CHANGELOG.md` : il indique si le `CLAUDE.md` du projet doit être retouché.
+
+## Conventions et intégrations
+L'architecture ne change jamais ; la stack, elle, évolue. Elle est décrite dans **`.claude/stack.json`** :
+```json
+{ "profile": "top", "integrations": ["postgresql", "redis"], "conventions": { "mapping": "mapstruct" } }
+```
+- **Conventions** (skill `conventions`) : un **socle** non négociable, un **profil** (`top`) qui donne les valeurs par défaut,
+  et des **options** que le projet peut surcharger (`mapping`, `lombok`, `errors`, `ids`).
+  Priorités : architecture > socle > options du projet > profil.
+- **Intégrations** (skill `integrations`) : une référence par technologie, avec un contrat vérifié et un statut
+  (`testée` / `non testée`). Chaque intégration joue des **rôles** (`sortant-cache`, `entrant-messagerie`…) ; chaque
+  architecture dit où va chaque rôle (`roles.conf`). Une nouvelle technologie = une seule référence, valable pour
+  toutes les architectures.
+- **Garde-fous** : le hook d'architecture refuse une bibliothèque d'intégration hors de ses rôles (ou de `config`) ;
+  `session-start` annonce la stack ; modifier `stack.json` demande votre accord.
+- **Ajouter une technologie** : `/add-integration redis` (dépendances, configuration, Testcontainers, santé, déclaration) ;
+  le code qui l'utilise passe ensuite par `/feature`.
+
+| Intégration | Rôles | Statut |
+|---|---|---|
+| postgresql | `sortant-persistance` | testée |
+| redis | `sortant-cache` | non testée |
+| mail | `sortant-notification` | non testée |
+| stockage-objet (S3 / MinIO) | `sortant-fichiers` | non testée |
+| rabbitmq | `entrant-messagerie`, `sortant-messagerie` | non testée |
+| kafka | `entrant-messagerie`, `sortant-messagerie` | non testée |
 
 ## Serveurs MCP (optionnel)
 - **Utiliser des serveurs** (GitHub, PostgreSQL en lecture seule) : `extras/mcp/README.md`. Les garde-fous sont déjà

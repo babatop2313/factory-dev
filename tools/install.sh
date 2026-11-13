@@ -8,8 +8,10 @@
 # Ce que fait le script :
 #  - copie le dossier .claude/ du kit dans le projet (les fichiers du kit sont remplacés) ;
 #  - ne touche jamais au choix d'architecture d'un projet existant (.claude/factory.json) ;
+#  - conserve la stack du projet (.claude/stack.json : profil, options, intégrations) ;
 #  - ne touche jamais à .claude/settings.local.json ni au CLAUDE.md du projet ;
-#  - signale, sans les supprimer, les fichiers du projet qui n'existent plus dans le kit.
+#  - supprime les fichiers que le kit a retirés (tools/removed-files.txt) ;
+#  - signale, sans les supprimer, les autres fichiers du projet qui n'existent plus dans le kit.
 set -euo pipefail
 
 kit="$(cd "$(dirname "$0")/.." && pwd)"
@@ -70,11 +72,17 @@ else
   info "Installation du kit $version (architecture : $arch)"
 fi
 
-# --- Copie du kit (factory.json du projet sauvegardé puis restauré) ---
+# --- Copie du kit (factory.json et stack.json du projet sauvegardés puis restaurés) ---
 saved=""
 if [ "$mode" = "update" ]; then
   saved="$(mktemp)"
   cp "$cfg" "$saved"
+fi
+stack="$target/.claude/stack.json"
+saved_stack=""
+if [ -f "$stack" ]; then
+  saved_stack="$(mktemp)"
+  cp "$stack" "$saved_stack"
 fi
 mkdir -p "$target/.claude"
 cp -R "$kit/.claude/." "$target/.claude/"
@@ -84,6 +92,12 @@ if [ -n "$saved" ]; then
 else
   printf '{\n  "architecture": "%s",\n  "baseBranch": "%s"\n}\n' "$arch" "${base:-develop}" > "$cfg"
 fi
+if [ -n "$saved_stack" ]; then
+  cp "$saved_stack" "$stack"
+  rm -f "$saved_stack"
+else
+  info "stack.json créé (profil « top », intégration « postgresql ») : vérifiez qu'il correspond au projet."
+fi
 
 # --- Migration du format ≤ v3.2 : la version sort de factory.json, baseBranch apparaît ---
 if jq -e 'has("factoryVersion") or (has("baseBranch") | not)' "$cfg" >/dev/null; then
@@ -92,6 +106,17 @@ if jq -e 'has("factoryVersion") or (has("baseBranch") | not)' "$cfg" >/dev/null;
   mv "$tmp" "$cfg"
   info "factory.json migré au format v3.3 (version retirée, baseBranch = $(jq -r .baseBranch "$cfg"))."
 fi
+
+# --- Fichiers retirés du kit par une version précédente : supprimés (ils appartenaient au kit) ---
+while read -r ver path; do
+  case "$ver" in ''|\#*) continue ;; esac
+  path="${path%$'\r'}"
+  if [ -f "$target/$path" ]; then
+    rm -f "$target/$path"
+    rmdir "$(dirname "$target/$path")" 2>/dev/null || true
+    info "Supprimé (retiré du kit en v$ver) : $path"
+  fi
+done < "$kit/tools/removed-files.txt"
 
 # --- Fichiers du projet absents du kit (signalés, jamais supprimés) ---
 obsolete=""

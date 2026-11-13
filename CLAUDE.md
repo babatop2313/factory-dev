@@ -11,8 +11,12 @@
 |---|---|
 | `.claude/` | Le kit à copier dans chaque projet (agents, commandes, hooks, skills, rules, settings, factory.json) |
 | `.claude/skills/architecture/references/` | Une référence par architecture (`couche`, `hexagonal`) + `_template` |
+| `.claude/skills/conventions/` | Socle des conventions, profils (`top`), options (mapping, lombok, errors, ids) |
+| `.claude/skills/integrations/` | Vocabulaire des rôles (`roles.conf`) et une référence par technologie + `_template` |
+| `.claude/stack.json` | Stack par défaut livrée aux projets (profil, intégrations, options) |
 | `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet (à copier sous le nom `CLAUDE.md`) |
 | `tools/install.sh` | Installe ou met à jour le kit dans un projet |
+| `tools/removed-files.txt` | Fichiers retirés du kit, supprimés des projets par `install.sh` |
 | `tools/check-references.sh` | Vérifie que chaque référence respecte le contrat |
 | `tools/test-hooks.sh` | Tests automatiques des hooks (les deux architectures, chemins Windows, verrou) |
 | `docs/ROADMAP.md` | Parcours de montée en compétences |
@@ -24,7 +28,11 @@
 - **Avant tout commit** : `bash tools/check-references.sh` puis `bash tools/test-hooks.sh`. Les deux doivent être verts.
 - Modifier une référence : respecter les 9 sections de `REFERENCE.md` (titres exacts) et garder
   la première ligne `// architecture: <nom>` de `ArchitectureTest.java`.
-- Ajouter une architecture : copier `references/_template/`, voir le README.
+- Ajouter une architecture : copier `references/_template/`, voir le README. Son `roles.conf` doit couvrir tout le vocabulaire.
+- Ajouter une intégration : copier `skills/integrations/references/_template/`, statut « non testée » ; la passer à
+  « testée » seulement après validation sur un projet réel. Ajouter un rôle : `skills/integrations/roles.conf`, puis
+  dans le `roles.conf` et la sous-section « Rôles techniques » de **chaque** architecture.
+- Retirer un fichier du kit : l'ajouter à `tools/removed-files.txt` (sinon il reste actif dans les projets mis à jour).
 - Les agents restent **génériques** : aucune règle propre à une architecture dans `.claude/agents/`,
   tout passe par la référence active.
 - Les scripts de `.claude/hooks/` et `tools/` doivent fonctionner sous Linux, macOS et Windows (Git Bash) :

@@ -1,0 +1,5 @@
+# Fichiers retirés du kit au fil des versions. tools/install.sh les supprime d'un projet lors d'une mise à jour :
+# ils appartenaient au kit (jamais au projet), et les garder créerait des doublons ou des contradictions.
+# Format : un chemin relatif à la racine du projet par ligne, précédé de la version qui l'a retiré.
+3.4.0 .claude/skills/spring-boot-conventions/SKILL.md
+3.0.0 .claude/commands/init-hexagonal.md

@@ -3,7 +3,9 @@
 > Document de cadrage : ce qui est prévu après la v3.3, et pourquoi. Chaque étape sera validée sur Bibliothèque,
 > comme les précédentes.
 
-## v3.4 — Conventions et intégrations
+## v3.4 — Conventions et intégrations ✅ (livrée)
+> Prochaine étape : valider `redis` sur Bibliothèque (`/add-integration redis`, puis un cache sur `list_available_books`)
+> et passer sa référence à « testée ».
 **Le constat** : le skill `spring-boot-conventions` mélange deux axes qui ne vivent pas au même rythme.
 
 | Axe | Exemple | Choisi | Change en cours de projet ? |
@@ -36,7 +38,8 @@ Contrairement à l'architecture, une intégration s'ajoute au troisième sprint 
       _template/
       postgresql/  redis/  mail/  …   REFERENCE.md, scaffold.md, rules.conf
 ```
-**Priorités en cas de conflit** : architecture > socle > profil > options du projet > `CLAUDE.md`.
+**Priorités en cas de conflit** : architecture > socle > options du projet > profil (le profil ne fournit que des valeurs
+par défaut) ; le `CLAUDE.md` du projet précise, sans contredire.
 Un projet choisit ses options, mais ne déroge jamais au socle (injection par constructeur, aucun secret, Flyway,
 pas d'IDOR, aucune donnée personnelle dans les logs). Les options démarrent peu nombreuses, avec pour valeurs par défaut
 les conventions actuelles : on en ajoutera quand un vrai besoin apparaîtra.
