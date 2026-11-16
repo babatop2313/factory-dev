@@ -29,19 +29,22 @@ jobs:
 
       - name: Fins de ligne des scripts (LF)
         run: |
-          if grep -rlI $'\r' .claude/hooks tools --include='*.sh' --include='*.conf'; then
+          if grep -rlI $'\r' hooks tools skills --include='*.sh' --include='*.conf'; then
             echo "Des scripts contiennent des fins de ligne Windows (CRLF)." >&2
             exit 1
           fi
 
       - name: Syntaxe des scripts
-        run: for f in .claude/hooks/*.sh tools/*.sh; do bash -n "$f" || exit 1; done
+        run: for f in hooks/scripts/*.sh tools/*.sh; do bash -n "$f" || exit 1; done
 
-      - name: Contrat des références d'architecture
+      - name: Contrat des références et du plugin
         run: bash tools/check-references.sh
 
-      - name: Tests des hooks
-        run: bash tools/test-hooks.sh
+      - name: Tests des hooks (mode copie)
+        run: bash tools/test-hooks.sh copy
+
+      - name: Tests des hooks (mode plugin)
+        run: bash tools/test-hooks.sh plugin
 
       - name: Installation dans un projet vide puis mise à jour
         run: |
@@ -55,3 +58,7 @@ jobs:
             echo "Le changement d'architecture aurait dû être refusé." >&2
             exit 1
           fi
+          bash tools/install.sh "$p" --mode plugin
+          test ! -d "$p/.claude/hooks"
+          test "$(jq -r '.enabledPlugins | keys[0]' "$p/.claude/settings.json")" = "factory@factory-dev"
+          test "$(jq -r .architecture "$p/.claude/factory.json")" = hexagonal

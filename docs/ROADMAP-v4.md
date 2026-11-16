@@ -72,7 +72,10 @@ health check, mise à jour de `stack.json`. Le code métier passe ensuite par `/
 | rabbitmq | adapter entrant/sortant messagerie | non testée | — |
 | kafka | adapter entrant/sortant messagerie | non testée | (plus tard) `catalog.book.registered.v1` consommé par `loan` |
 
-## v4.0 — Noyau neutre (préparer le multi-IA)
+## v4.0 — Plugin Claude Code ✅ (livrée, avancée avant le noyau neutre)
+Le dépôt est devenu un plugin et sa marketplace ; le mode copie reste disponible. Voir le CHANGELOG.
+
+## v4.1 — Noyau neutre (préparer le multi-IA)
 Appliquer l'architecture hexagonale à la factory elle-même : un **noyau neutre** et des **adaptateurs par outil**.
 ```
 core/          factory.json, stack.json, références (architecture, conventions, intégrations),
@@ -96,14 +99,10 @@ adapters/
 | Sous-agents | moyenne : notions très différentes |
 | Hooks | faible : remplacés par le hook Git et la CI pour ce qui est obligatoire |
 
-## v4.1 — `factory-mcp`, la factory comme serveur MCP
+## v4.2 — `factory-mcp`, la factory comme serveur MCP
 Serveur en **Java / Spring AI, transport stdio**, utilisable par tous les clients : `get_architecture`,
 `get_reference_section`, `check_architecture(fichier)` (applique les `rules.conf`), `list_integrations`, `list_specs`…
 Dans Claude Code, il ferait doublon avec les skills ; il prend tout son sens pour Copilot et Gemini.
-
-## v4.2 — Plugin Claude Code
-La factory s'installe en une commande depuis un marketplace (le dépôt GitHub du kit) : agents, skills, hooks, commandes
-et serveurs MCP regroupés. Fin des copies de `.claude/`.
 
 ## v4.3 et v4.4 — Copilot, puis Gemini CLI
 Un adaptateur par outil, généré depuis le noyau, **validé sur Bibliothèque** avec les mêmes scénarios que pour Claude.

@@ -1,7 +1,8 @@
 # Serveurs MCP optionnels
 
 Comme la CI, les serveurs MCP sont **optionnels** : chaque projet choisit ceux dont il a besoin.
-Les garde-fous, eux, sont **déjà actifs** dans le kit (`.claude/settings.json` et le hook `guard-mcp-sql.sh`) :
+Les garde-fous, eux, sont **déjà actifs** : règles de permission du `.claude/settings.json` du projet (écrit par
+`tools/install.sh`) et hook `guard-mcp-sql.sh` du kit :
 une règle qui vise un serveur absent du projet est simplement sans effet.
 
 | Fichier | Serveur | Variable d'environnement |
