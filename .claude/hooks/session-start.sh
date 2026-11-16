@@ -50,9 +50,21 @@ if [ -f "$stack" ]; then
   profile=$(jq -r '.profile // "top"' "$stack" 2>/dev/null | tr -d '\r')
   options=$(jq -r '(.conventions // {}) | to_entries | map("\(.key)=\(.value)") | join(", ")' "$stack" 2>/dev/null | tr -d '\r')
   echo "=== Stack (.claude/stack.json, modifiable avec l'accord de l'humain) ==="
-  echo "Conventions : skill « conventions » (socle + profil « $profile »${options:+ ; options du projet : $options}). À charger avant toute tâche backend."
-  [ -f "$root/.claude/skills/conventions/references/profiles/$profile/PROFILE.md" ] \
-    || echo "⚠ Le profil « $profile » n'existe pas dans .claude/skills/conventions/references/profiles/ : signale-le."
+  pfile="$root/.claude/skills/conventions/references/profiles/$profile/PROFILE.md"
+  if [ -f "$pfile" ]; then
+    # Options effectives : valeur du projet (stack.json) si elle existe, sinon valeur par défaut du profil.
+    effective=""
+    while IFS='|' read -r opt val; do
+      [ -z "$opt" ] && continue
+      over=$(jq -r --arg k "$opt" '(.conventions // {})[$k] // empty' "$stack" 2>/dev/null | tr -d '\r')
+      if [ -n "$over" ]; then effective+="${effective:+, }$opt=$over (projet)"; else effective+="${effective:+, }$opt=$val"; fi
+    done < <(tr -d '\r' < "$pfile" | sed -n 's/^| `\([a-z-]*\)` | `\([^`]*\)` |.*/\1|\2/p')
+    echo "Conventions : skill « conventions » (socle + profil « $profile »). À charger avant toute tâche backend."
+    [ -n "$effective" ] && echo "Options effectives : $effective."
+  else
+    echo "Conventions : skill « conventions »${options:+ ; options du projet : $options}."
+    echo "⚠ Le profil « $profile » n'existe pas dans .claude/skills/conventions/references/profiles/ : signale-le."
+  fi
   integ_list=$(active_integrations)
   if [ -n "$integ_list" ]; then
     echo "Intégrations actives (skill « integrations » : ne lire que la référence de la techno touchée) :"

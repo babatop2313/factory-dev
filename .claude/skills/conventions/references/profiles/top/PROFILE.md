@@ -19,5 +19,6 @@
   (`feat(<module>): …`) ; une PR par feature, jamais de push sur `main` ni `develop`.
 - **Specs** : `docs/specs/<feature>.md`, règles métier numérotées `RM-xx`, critères d'acceptation en Gherkin,
   section « Décisions » complétée après validation.
-- **Base de données** : PostgreSQL local pour le développement ; Docker réservé à Testcontainers.
+- **Services locaux** : PostgreSQL installé sur le poste ; Docker pour Testcontainers et pour les services sans
+  installation native sur le poste (Redis sous Windows, Mailpit, MinIO…), avec `--restart unless-stopped`.
 - **Messages destinés à un assistant IA** (outils MCP) : descriptions précises en français, erreurs métier en français.

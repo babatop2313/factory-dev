@@ -38,7 +38,10 @@ y compris quand il tourne en arrière-plan.
    S'il détecte un bug dans le code de production, renvoie-le à `backend-dev`, puis relance `test-writer`.
 6. **Revue** → agent `reviewer`. S'il y a des remarques BLOQUANT ou MAJEUR, renvoie-les à l'agent dev concerné, puis relance la revue.
    Maximum 2 boucles ; au-delà, arrête-toi et fais-moi un point.
-7. **Clôture** : commit au format Conventional Commits (code, tests, spec et plan), puis donne-moi un résumé :
+7. **Verdict → ⏸ ARRÊT** : présente-moi le verdict de la revue (points bloquants, majeurs, mineurs, suggestions),
+   le nombre de tests et les écarts au plan. **Attends ma décision avant tout commit** : je peux demander des corrections
+   (second passage par les agents concernés, puis revue rapide) ou valider tel quel.
+8. **Clôture**, après mon accord : commit au format Conventional Commits (code, tests, spec et plan), puis donne-moi un résumé :
    architecture appliquée, fichiers modifiés par couche, tests (passés/échoués), verdict de la revue,
    et la commande pour pousser la branche.
 

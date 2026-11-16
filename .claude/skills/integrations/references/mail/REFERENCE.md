@@ -22,7 +22,7 @@ spring:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
     username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}       # vide en local (Mailpit) ; obligatoire hors poste de développement
+    password: ${MAIL_PASSWORD}        # secret : aucune valeur par défaut (socle)
     properties:
       mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
       mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
@@ -33,6 +33,9 @@ app:
   mail:
     from: ${MAIL_FROM:no-reply@localhost}
 ```
+
+- Poste de développement (Mailpit, sans authentification) : `spring.mail.password: ""` dans `application-local.yml`,
+  pour démarrer sans définir `MAIL_PASSWORD` (sous Windows, une variable d'environnement vide est supprimée).
 
 ## Rôle dans l'architecture
 - `sortant-notification` : un adapter qui implémente un port de sortie métier (`NotifyMemberPort.sendLoanReminder(...)`),

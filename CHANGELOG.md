@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.4.1 — Redis validé, retours de la première intégration
+Rien d'obligatoire dans un projet existant : mise à jour recommandée avec `tools/install.sh`.
+Si le projet utilise `mail` ou `redis` : retirer la valeur par défaut des mots de passe dans `application.yml`
+et mettre `password: ""` dans `application-local.yml` (voir les références).
+
+- **`redis` passe en « testée »** (Bibliothèque : `/add-integration redis`, cache de la liste des livres disponibles,
+  test réel avec Redis coupé). La référence intègre ce qui a été validé : mot de passe sans valeur par défaut et profil
+  `local`, `repositories.enabled: false`, `REJECT_COMMANDS` par `LettuceClientOptionsBuilderCustomizer`, codec JSON
+  strict sans nom de classe, une seule clé pour une liste paramétrée, invalidation après commit, lecture à trois issues
+  (pas d'écriture quand Redis est injoignable), contrôle des bornes du domaine dans le codec, configurations de test
+  séparées, health check et bruit des reconnexions de Lettuce, commandes `redis-cli` utiles.
+- **`mail`** : mot de passe sans valeur par défaut (même incohérence avec le socle que `redis`).
+- **`/feature`** : nouvel **arrêt après la revue** — le verdict est présenté à l'humain, qui décide avant tout commit.
+- **`factory.md`** : les fichiers se lisent avec l'outil Read, jamais avec `cat`/`head`/`Get-Content`
+  (moins de demandes d'autorisation, respect direct des règles de permission).
+- **`session-start`** annonce les **options effectives** (valeur du projet, sinon celle du profil).
+- **Profil `top`** : Docker aussi pour les services sans installation native (Redis sous Windows, Mailpit, MinIO).
+- **README** : piège de la commande `bash` dans PowerShell (lance WSL au lieu de Git Bash).
+- `tools/test-hooks.sh` : 125 scénarios.
+
 ## v3.4.0 — Conventions et intégrations
 **À faire dans un projet existant** :
 1. Mettre à jour avec `tools/install.sh`, dans une branche dédiée. Le script crée `.claude/stack.json`

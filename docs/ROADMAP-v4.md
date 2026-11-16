@@ -4,8 +4,8 @@
 > comme les précédentes.
 
 ## v3.4 — Conventions et intégrations ✅ (livrée)
-> Prochaine étape : valider `redis` sur Bibliothèque (`/add-integration redis`, puis un cache sur `list_available_books`)
-> et passer sa référence à « testée ».
+> `redis` validée sur Bibliothèque en v3.4.1 (cache de `list_available_books`). Prochaines validations possibles :
+> `mail` (rappel de retour d'emprunt avec le module `loan`), `kafka` (`catalog.book.registered.v1` consommé par `loan`).
 **Le constat** : le skill `spring-boot-conventions` mélange deux axes qui ne vivent pas au même rythme.
 
 | Axe | Exemple | Choisi | Change en cours de projet ? |
@@ -66,7 +66,7 @@ health check, mise à jour de `stack.json`. Le code métier passe ensuite par `/
 | Techno | Rôle | Statut prévu en v3.4 | Validation sur Bibliothèque |
 |---|---|---|---|
 | postgresql | adapter sortant persistance | testée (déjà utilisée) | — |
-| redis | adapter sortant cache | testée | cache sur `list_available_books`, invalidé à l'enregistrement |
+| redis | adapter sortant cache | ✅ testée (v3.4.1) | cache sur `list_available_books`, invalidé à l'enregistrement |
 | mail (SMTP) | adapter sortant notification | non testée | (plus tard) rappel de retour d'emprunt |
 | stockage objet (S3 / MinIO) | adapter sortant fichiers | non testée | (plus tard) couverture d'un livre |
 | rabbitmq | adapter entrant/sortant messagerie | non testée | — |

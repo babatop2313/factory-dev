@@ -66,7 +66,7 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `.claude/hooks/` | `session-start`, `guard-architecture`, `guard-files`, `guard-bash`, `guard-mcp-sql`, `post-edit-check`, `post-bash-check` (+ `lib.sh`) |
 | `tools/install.sh` | **Installe ou met à jour** le kit dans un projet (Linux, macOS, Windows avec Git Bash) |
 | `tools/check-references.sh` | Vérifie le contrat des architectures, intégrations, conventions et du `stack.json` |
-| `tools/test-hooks.sh` | Tests automatiques des hooks (123 scénarios : architectures, intégrations, chemins Windows, verrou, Maven, SQL, absence de jq) |
+| `tools/test-hooks.sh` | Tests automatiques des hooks (125 scénarios : architectures, intégrations, chemins Windows, verrou, Maven, SQL, absence de jq) |
 | `.github/workflows/factory-ci.yml` | CI du kit sur **Ubuntu, macOS et Windows** à chaque PR |
 | `docs/ROADMAP.md` | Parcours de montée en compétences |
 | `docs/ROADMAP-MCP.md` | Parcours MCP : utiliser des serveurs, puis créer le sien |
@@ -94,7 +94,9 @@ Le kit est cloné à côté du projet (`factory-dev/` et `mon-projet/` dans le m
 bash factory-dev/tools/install.sh mon-projet --architecture hexagonal   # ou couche ; --base-branch main si besoin
 cd mon-projet && claude
 ```
-**Windows (PowerShell)** — le script s'exécute avec le bash de Git for Windows :
+**Windows (PowerShell)** — le script s'exécute avec le bash de Git for Windows. Dans PowerShell, la commande `bash`
+seule lance le bash de **WSL** (erreur `execvpe(/bin/bash) failed` s'il n'est pas installé) : utiliser le chemin complet
+ci-dessous, ou une fenêtre Git Bash.
 ```powershell
 & "C:\Program Files\Git\bin\bash.exe" factory-dev/tools/install.sh mon-projet --architecture hexagonal
 cd mon-projet; claude
@@ -143,7 +145,7 @@ L'architecture ne change jamais ; la stack, elle, évolue. Elle est décrite dan
 | Intégration | Rôles | Statut |
 |---|---|---|
 | postgresql | `sortant-persistance` | testée |
-| redis | `sortant-cache` | non testée |
+| redis | `sortant-cache` | **testée** (Bibliothèque, v3.4.1) |
 | mail | `sortant-notification` | non testée |
 | stockage-objet (S3 / MinIO) | `sortant-fichiers` | non testée |
 | rabbitmq | `entrant-messagerie`, `sortant-messagerie` | non testée |

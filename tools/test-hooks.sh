@@ -243,10 +243,14 @@ CLAUDE_PROJECT_DIR="$(printf '%s' "$T" | sed 's#^/\(.\)/#\1:/#')" \
 
 echo "== session-start : stack"
 setarch hexagonal
-setstack '"postgresql", "redis"'
-chk_out "redis (non testée)" "intégration active annoncée avec son statut" session-start.sh '{}'
+setstack '"postgresql", "mail"'
+chk_out "mail (non testée)" "intégration non testée annoncée avec son statut" session-start.sh '{}'
 chk_out "postgresql (testée)" "intégration testée annoncée" session-start.sh '{}'
 chk_out "profil « top »" "profil de conventions annoncé" session-start.sh '{}'
+chk_out "mapping=manuel" "options effectives : valeur par défaut du profil" session-start.sh '{}'
+printf '{ "profile": "top", "integrations": ["postgresql"], "conventions": { "mapping": "mapstruct" } }' > "$T/.claude/stack.json"
+chk_out "mapping=mapstruct (projet)" "options effectives : surcharge du projet" session-start.sh '{}'
+setstack '"postgresql", "redis"'
 setstack '"inconnue"'
 chk_out "aucune référence" "intégration sans référence signalée" session-start.sh '{}'
 printf '{ "profile": "absent", "integrations": [] }' > "$T/.claude/stack.json"

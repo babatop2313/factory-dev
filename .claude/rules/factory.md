@@ -30,6 +30,9 @@
 - **Les fichiers source se créent et se modifient avec les outils Write et Edit, jamais par le shell**
   (`echo >`, `cat <<EOF`, `sed -i`, boucle `mkdir` + écriture…). Les hooks de vérification (architecture, compilation,
   fichiers protégés) ne surveillent que Write et Edit : un fichier écrit par le shell leur échappe.
+- **Les fichiers se lisent avec l'outil Read** (et se cherchent avec Glob et Grep), jamais avec `cat`, `head`, `tail`,
+  `type` ou `Get-Content` : Read respecte directement les règles de permission (secrets, `.env`) et évite des demandes
+  d'autorisation inutiles à l'humain.
 - Le shell sert à compiler, tester, lire l'historique Git et créer des branches ou des commits.
 - Si un hook bloque une action, ne pas chercher à le contourner : corriger, ou signaler le blocage à l'humain.
 - **Commandes portables** (le kit tourne sous Windows, macOS et Linux) : lancer Maven depuis `backend/` avec `./mvnw` ;
@@ -65,7 +68,8 @@
 3. Implémentation (agent `backend-dev`) dans l'ordre d'implémentation de la référence d'architecture.
 4. Tests (agent `test-writer`) selon la section « Tests par couche » de la référence.
 5. Revue (agent `reviewer`) → corrections.
-6. Commit au format Conventional Commits : `feat(<module>): <description>`.
+6. Verdict présenté à l'humain, qui décide (corrections ou validation) **avant tout commit**.
+7. Commit au format Conventional Commits : `feat(<module>): <description>`.
 
 ## Commandes de la factory
 | Commande | Rôle |
