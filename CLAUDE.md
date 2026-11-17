@@ -1,45 +1,47 @@
 # CLAUDE.md — dépôt du kit Claude Factory
 
 > Ce dépôt **est le kit lui-même**, pas une application. Il ne contient pas de code Spring Boot.
-> Les agents, commandes, hooks et références qu'il contient sont destinés à être **copiés dans des projets**.
-> Le fichier `.claude/rules/factory.md` est chargé ici aussi, mais ses règles « backend » concernent les projets,
-> pas ce dépôt. De même, le hook `session-start.sh` annonce l'architecture de `factory.json` : c'est la valeur
-> par défaut livrée aux projets.
+> Depuis la v4, c'est un **plugin Claude Code** (`factory`) et sa **marketplace** (`factory-dev`).
+> Les agents, commandes, skills, hooks et règles sont destinés aux **projets** : ils ne s'appliquent pas à ce dépôt.
+> Pour les essayer, ouvrir un projet de test avec `claude --plugin-dir <chemin de ce dépôt>`.
 
 ## Ce que contient le dépôt
 | Élément | Rôle |
 |---|---|
-| `.claude/` | Le kit à copier dans chaque projet (agents, commandes, hooks, skills, rules, settings, factory.json) |
-| `.claude/skills/architecture/references/` | Une référence par architecture (`couche`, `hexagonal`) + `_template` |
-| `.claude/skills/conventions/` | Socle des conventions, profils (`top`), options (mapping, lombok, errors, ids) |
-| `.claude/skills/integrations/` | Vocabulaire des rôles (`roles.conf`) et une référence par technologie + `_template` |
-| `.claude/stack.json` | Stack par défaut livrée aux projets (profil, intégrations, options) |
-| `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet (à copier sous le nom `CLAUDE.md`) |
-| `tools/install.sh` | Installe ou met à jour le kit dans un projet |
-| `tools/removed-files.txt` | Fichiers retirés du kit, supprimés des projets par `install.sh` |
-| `tools/check-references.sh` | Vérifie que chaque référence respecte le contrat |
-| `tools/test-hooks.sh` | Tests automatiques des hooks (les deux architectures, chemins Windows, verrou) |
-| `docs/ROADMAP.md` | Parcours de montée en compétences |
-| `extras/ci/` | Exemples CI optionnels (GitLab, Jenkins) |
-| `extras/mcp/` | Serveurs MCP optionnels (GitHub, PostgreSQL en lecture seule) |
-| `.github/workflows/factory-ci.yml` | CI du kit : Ubuntu, macOS (bash 3.2) et Windows (Git Bash) |
+| `.claude-plugin/plugin.json` | Manifeste du plugin : nom `factory`, **version du kit** (source unique) |
+| `.claude-plugin/marketplace.json` | Marketplace `factory-dev` (`source: "./"`) |
+| `agents/`, `commands/` | Sous-agents et commandes du kit |
+| `skills/architecture/references/` | Une référence par architecture (`couche`, `hexagonal`) + `_template` |
+| `skills/conventions/` | Socle, profils (`top`), options (mapping, lombok, errors, ids) |
+| `skills/integrations/` | Vocabulaire des rôles (`roles.conf`) et une référence par technologie + `_template` |
+| `hooks/hooks.json`, `hooks/scripts/` | Hooks du plugin (`${CLAUDE_PLUGIN_ROOT}`) ; `install.sh` les adapte au mode copie |
+| `rules/factory.md` | Règles communes (copiées dans `.claude/rules/` ou injectées par `session-start`) |
+| `templates/` | Fichiers créés dans les projets : `factory.json`, `stack.json`, `settings.json` (permissions seulement) |
+| `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet |
+| `tools/install.sh` | Prépare ou met à jour un projet (`--mode plugin` ou `copy`) |
+| `tools/removed-files.txt` | Fichiers retirés du kit, supprimés des projets en mode copie |
+| `tools/check-references.sh` | Contrats des références et cohérence du plugin |
+| `tools/test-hooks.sh` | Tests des hooks : `copy` puis `plugin` |
+| `docs/`, `extras/` | Roadmaps ; CI et serveurs MCP optionnels |
+| `.github/workflows/factory-ci.yml` | CI : Ubuntu, macOS (bash 3.2) et Windows (Git Bash), deux modes |
 
 ## Travailler sur le kit
-- **Avant tout commit** : `bash tools/check-references.sh` puis `bash tools/test-hooks.sh`. Les deux doivent être verts.
-- Modifier une référence : respecter les 9 sections de `REFERENCE.md` (titres exacts) et garder
-  la première ligne `// architecture: <nom>` de `ArchitectureTest.java`.
-- Ajouter une architecture : copier `references/_template/`, voir le README. Son `roles.conf` doit couvrir tout le vocabulaire.
+- **Avant tout commit** : `bash tools/check-references.sh`, `bash tools/test-hooks.sh copy` et `bash tools/test-hooks.sh plugin`.
+- **Chemins** : dans les agents, commandes, skills et règles, le dossier du kit s'écrit `<kit>` (jamais `.claude/skills/…`) ;
+  les fichiers du projet restent `.claude/factory.json`, `.claude/stack.json`, `CLAUDE.md`. Dans les scripts, utiliser
+  `kit_root`, `kit_path`, `kit_mode` et `kit_version` de `hooks/scripts/lib.sh`, qui fonctionnent dans les deux modes.
+- **Hooks** : déclarés dans `hooks/hooks.json` avec `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/…` ; ne jamais en mettre dans
+  `templates/settings.json` (ils seraient en double en mode plugin).
+- Modifier une référence d'architecture : respecter les 9 sections de `REFERENCE.md` (titres exacts), garder la première
+  ligne `// architecture: <nom>` de `ArchitectureTest.java`, et un `roles.conf` qui couvre tout le vocabulaire.
 - Ajouter une intégration : copier `skills/integrations/references/_template/`, statut « non testée » ; la passer à
-  « testée » seulement après validation sur un projet réel. Ajouter un rôle : `skills/integrations/roles.conf`, puis
-  dans le `roles.conf` et la sous-section « Rôles techniques » de **chaque** architecture.
-- Retirer un fichier du kit : l'ajouter à `tools/removed-files.txt` (sinon il reste actif dans les projets mis à jour).
-- Les agents restent **génériques** : aucune règle propre à une architecture dans `.claude/agents/`,
-  tout passe par la référence active.
-- Les scripts de `.claude/hooks/` et `tools/` doivent fonctionner sous Linux, macOS et Windows (Git Bash) :
-  normaliser les chemins (`\` → `/`), retirer les `\r`, ne dépendre que de `bash`, `jq`, `grep`, `sed`, `awk`.
-  **Compatibles bash 3.2** (macOS) : ni `declare -A`, ni `${x,,}`, ni `mapfile`. Options POSIX de `sed`/`grep`
-  (`sed -E`, jamais `\+` en regex basique ni `grep -P`). La CI le vérifie sur les trois systèmes.
+  « testée » seulement après validation sur un projet réel. Ajouter un rôle : `skills/integrations/roles.conf`, puis dans
+  le `roles.conf` et la sous-section « Rôles techniques » de **chaque** architecture.
+- Retirer un fichier du kit : l'ajouter à `tools/removed-files.txt` (avec son chemin dans un projet en mode copie).
+- Les agents restent **génériques** : aucune règle propre à une architecture dans `agents/`.
+- Scripts portables (Linux, macOS, Windows Git Bash) : chemins normalisés, `\r` retirés, seulement `bash`, `jq`, `grep`,
+  `sed`, `awk` ; **compatibles bash 3.2** (ni `declare -A`, ni `${x,,}`, ni `mapfile`) ; `sed -E`, jamais `grep -P`.
 - Un hook de **protection** sans jq bloque (`need_jq block`) ; un hook de **confort** ne fait rien (`need_jq skip`).
-- Noter chaque changement dans `CHANGELOG.md` et monter la version dans `.claude/factory-version`
-  (`.claude/factory.json` ne contient que les choix d'un projet : architecture et branche d'intégration).
-- Workflow Git : branche `feature/…` depuis `main`, Pull Request, tag de version après fusion (`v3.1`, …).
+- **Version** : uniquement dans `.claude-plugin/plugin.json` (`install.sh` écrit `factory-version` en mode copie).
+  Noter chaque changement dans `CHANGELOG.md`.
+- Workflow Git : branche depuis `main`, Pull Request, tag de version après fusion (`v4.0`, …).

@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
 # Tests automatiques des hooks de la factory.
-# Usage : bash tools/test-hooks.sh   (depuis la racine du dépôt du kit ; Linux, macOS ou Git Bash sous Windows)
-# Crée un faux projet temporaire, y copie .claude/, puis simule les appels que Claude Code ferait aux hooks.
+# Usage : bash tools/test-hooks.sh [copy|plugin]   (depuis la racine du dépôt du kit ; Linux, macOS ou Git Bash)
+# Crée un faux projet temporaire (installé par tools/install.sh), puis simule les appels que Claude Code ferait aux hooks.
 set -uo pipefail
 
 kit="$(cd "$(dirname "$0")/.." && pwd)"
-T="$(mktemp -d)"
-trap 'rm -rf "$T"' EXIT
-cp -r "$kit/.claude" "$T/"
-chmod -x "$T"/.claude/hooks/*.sh   # comme après une copie depuis Windows : les hooks sont lancés par « bash », sans droit d'exécution
+MODE="${1:-copy}"   # copy : kit copié dans .claude/ du projet ; plugin : kit dans un dossier de plugin séparé
+T="$(mktemp -d)"    # le projet simulé
+P="$(mktemp -d)"    # le plugin simulé (mode plugin)
+trap 'rm -rf "$T" "$P"' EXIT
+if [ "$MODE" = "plugin" ]; then
+  cp -R "$kit/.claude-plugin" "$kit/agents" "$kit/commands" "$kit/skills" "$kit/hooks" "$kit/rules" "$P/"
+  bash "$kit/tools/install.sh" "$T" --architecture hexagonal --mode plugin >/dev/null || { echo "install.sh a échoué"; exit 1; }
+  chmod -x "$P"/hooks/scripts/*.sh
+  H="$P/hooks/scripts"
+else
+  bash "$kit/tools/install.sh" "$T" --architecture hexagonal >/dev/null || { echo "install.sh a échoué"; exit 1; }
+  chmod -x "$T"/.claude/hooks/*.sh   # comme après une copie depuis Windows : les hooks sont lancés par « bash », sans droit d'exécution
+  H="$T/.claude/hooks"
+fi
+echo "### Tests des hooks — mode $MODE"
 export CLAUDE_PROJECT_DIR="$T"
 export TMPDIR="$T/tmp"; mkdir -p "$TMPDIR"
-H="$T/.claude/hooks"
 J="$T/backend/src/main/java/com/example/library"
 pass=0; fail=0
 
@@ -258,6 +268,20 @@ chk_out "n'existe pas" "profil inconnu signalé" session-start.sh '{}'
 rm -f "$T/.claude/stack.json"
 chk_out "stack.json est absent" "projet sans stack.json (≤ v3.3)" session-start.sh '{}'
 setstack '"postgresql"'
+
+echo "== session-start : mode $MODE"
+setarch hexagonal
+if [ "$MODE" = "plugin" ]; then
+  chk_out "Kit installé comme plugin" "mode plugin annoncé" session-start.sh '{}'
+  chk_out "<kit> = $P" "chemin absolu du plugin annoncé" session-start.sh '{}'
+  chk_out "## Règles non négociables" "règles de factory.md injectées (pas de .claude/rules/ en mode plugin)" session-start.sh '{}'
+  chk_out "CLAUDE FACTORY v$(jq -r .version "$kit/.claude-plugin/plugin.json")" "version lue dans plugin.json" session-start.sh '{}'
+else
+  chk_out "<kit> = .claude" "kit dans .claude/ annoncé" session-start.sh '{}'
+  printf '{}' | bash "$H/session-start.sh" > "$T/out" 2>&1
+  if grep -q "## Règles non négociables" "$T/out"; then fail=$((fail+1)); echo "  ✗ mode copie : les règles ne doivent pas être injectées (déjà dans .claude/rules/)"
+  else pass=$((pass+1)); echo "  ✓ mode copie : règles non injectées (chargées depuis .claude/rules/)"; fi
+fi
 
 echo "== sans jq"
 case "$(uname -s)" in

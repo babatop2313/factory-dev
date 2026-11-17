@@ -2,41 +2,44 @@
 # Installe ou met à jour la Claude Factory dans un projet.
 # Fonctionne sous Linux, macOS et Windows (Git Bash).
 #
-# Première installation :  bash tools/install.sh <dossier-du-projet> --architecture <nom> [--base-branch develop]
-# Mise à jour du kit     :  bash tools/install.sh <dossier-du-projet>
+# Première installation :  bash tools/install.sh <projet> --architecture <nom> [--base-branch develop] [--mode plugin|copy]
+# Mise à jour du kit     :  bash tools/install.sh <projet> [--mode plugin|copy]
 #
-# Ce que fait le script :
-#  - copie le dossier .claude/ du kit dans le projet (les fichiers du kit sont remplacés) ;
-#  - ne touche jamais au choix d'architecture d'un projet existant (.claude/factory.json) ;
-#  - conserve la stack du projet (.claude/stack.json : profil, options, intégrations) ;
+#   --mode copy   (défaut) copie le kit dans <projet>/.claude (agents, commandes, skills, hooks, règles).
+#   --mode plugin n'écrit que les fichiers du projet ; le kit est fourni par le plugin Claude Code « factory ».
+#                 Sur un projet en mode copie, retire les fichiers du kit copiés (migration vers le plugin).
+#   --marketplace <owner/repo>  dépôt GitHub de la marketplace (mode plugin ; défaut : dépôt d'origine du kit).
+#
+# Dans tous les cas, le script :
+#  - ne change jamais l'architecture d'un projet existant (.claude/factory.json) ;
+#  - conserve la stack du projet (.claude/stack.json) ;
 #  - ne touche jamais à .claude/settings.local.json ni au CLAUDE.md du projet ;
-#  - supprime les fichiers que le kit a retirés (tools/removed-files.txt) ;
-#  - signale, sans les supprimer, les autres fichiers du projet qui n'existent plus dans le kit.
+#  - réécrit .claude/settings.json (fichier du kit : permissions, et hooks ou activation du plugin) ;
+#  - supprime les fichiers que le kit a retirés (tools/removed-files.txt) et signale les autres fichiers inconnus.
 set -euo pipefail
 
 kit="$(cd "$(dirname "$0")/.." && pwd)"
-refs="$kit/.claude/skills/architecture/references"
+refs="$kit/skills/architecture/references"
 
-usage() {
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
-  exit 1
-}
+usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 die() { echo "✗ $*" >&2; exit 1; }
 info() { echo "• $*"; }
-
 available_architectures() { ls "$refs" | grep -v '^_' | tr '\n' ' '; }
 
 [ $# -ge 1 ] || usage
 target="$1"; shift
-arch=""; base=""
+arch=""; base=""; mode="copy"; marketplace=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --architecture) arch="${2:-}"; shift 2 ;;
     --base-branch)  base="${2:-}"; shift 2 ;;
+    --mode)         mode="${2:-}"; shift 2 ;;
+    --marketplace)  marketplace="${2:-}"; shift 2 ;;
     -h|--help)      usage ;;
     *) die "option inconnue : $1" ;;
   esac
 done
+case "$mode" in copy|plugin) ;; *) die "--mode doit valoir copy ou plugin (reçu : $mode)" ;; esac
 
 # --- Prérequis ---
 command -v git >/dev/null 2>&1 || die "git est introuvable."
@@ -49,12 +52,21 @@ fi
 target="$(cd "$target" && pwd)"
 [ "$target" != "$kit" ] || die "le projet cible ne peut pas être le dépôt du kit lui-même."
 
+version="$(jq -r .version "$kit/.claude-plugin/plugin.json")"
+plugin_name="$(jq -r .name "$kit/.claude-plugin/plugin.json")"
+market_name="$(jq -r .name "$kit/.claude-plugin/marketplace.json")"
+if [ -z "$marketplace" ]; then
+  url="$(git -C "$kit" remote get-url origin 2>/dev/null || true)"
+  marketplace="$(printf '%s' "$url" | sed -nE 's#^.*github\.com[:/]([^/]+/[^/.]+)(\.git)?/?$#\1#p')"
+  [ -n "$marketplace" ] || marketplace="babatop2313/factory-dev"
+fi
 cfg="$target/.claude/factory.json"
-version="$(head -1 "$kit/.claude/factory-version" | tr -d '\r[:space:]')"
+stack="$target/.claude/stack.json"
+was_copy=0; [ -f "$target/.claude/hooks/session-start.sh" ] && was_copy=1
 
-# --- Mode : installation ou mise à jour ---
+# --- Installation ou mise à jour ---
 if [ -f "$cfg" ]; then
-  mode="update"
+  action="update"
   current="$(jq -r '.architecture // empty' "$cfg" | tr -d '\r')"
   [ -n "$current" ] || die "$cfg existe mais ne contient pas d'architecture. Corrigez-le à la main."
   if [ -n "$arch" ] && [ "$arch" != "$current" ]; then
@@ -63,48 +75,62 @@ if [ -f "$cfg" ]; then
   arch="$current"
   [ -d "$refs/$arch" ] || die "l'architecture « $arch » du projet n'existe pas dans cette version du kit."
   previous="$(head -1 "$target/.claude/factory-version" 2>/dev/null | tr -d '\r[:space:]' || true)"
-  [ -n "$previous" ] || previous="$(jq -r '.factoryVersion // "inconnue"' "$cfg" | tr -d '\r')"
-  info "Mise à jour du kit : $previous → $version (architecture : $arch)"
+  [ -n "$previous" ] || previous="$(jq -r '.factoryVersion // empty' "$cfg" | tr -d '\r')"
+  info "Mise à jour : ${previous:-plugin} → $version, mode $mode (architecture : $arch)"
 else
-  mode="install"
+  action="install"
   [ -n "$arch" ] || die "première installation : précisez --architecture <nom>. Disponibles : $(available_architectures)"
   [ -d "$refs/$arch" ] && [ "${arch#_}" = "$arch" ] || die "architecture inconnue : $arch. Disponibles : $(available_architectures)"
-  info "Installation du kit $version (architecture : $arch)"
+  info "Installation du kit $version, mode $mode (architecture : $arch)"
 fi
 
-# --- Copie du kit (factory.json et stack.json du projet sauvegardés puis restaurés) ---
-saved=""
-if [ "$mode" = "update" ]; then
-  saved="$(mktemp)"
-  cp "$cfg" "$saved"
-fi
-stack="$target/.claude/stack.json"
-saved_stack=""
-if [ -f "$stack" ]; then
-  saved_stack="$(mktemp)"
-  cp "$stack" "$saved_stack"
-fi
+# --- Le kit au format .claude/ (référence pour la copie et pour reconnaître les fichiers du kit) ---
+stage="$(mktemp -d)"
+trap 'rm -rf "$stage"' EXIT
+mkdir -p "$stage/hooks" "$stage/rules"
+cp -R "$kit/agents" "$kit/commands" "$kit/skills" "$stage/"
+cp "$kit"/hooks/scripts/*.sh "$stage/hooks/"
+cp "$kit/rules/factory.md" "$stage/rules/factory.md"
+printf '%s\n' "$version" > "$stage/factory-version"
+
+# --- .claude/settings.json : permissions du kit + hooks (copie) ou activation du plugin (plugin) ---
 mkdir -p "$target/.claude"
-cp -R "$kit/.claude/." "$target/.claude/"
-if [ -n "$saved" ]; then
-  cp "$saved" "$cfg"
-  rm -f "$saved"
+if [ "$mode" = "copy" ]; then
+  jq -s '.[0] * {hooks: (.[1].hooks | walk(if type == "string"
+           then gsub("\\$\\{CLAUDE_PLUGIN_ROOT\\}/hooks/scripts/"; "$CLAUDE_PROJECT_DIR/.claude/hooks/") else . end))}' \
+    "$kit/templates/settings.json" "$kit/hooks/hooks.json" > "$target/.claude/settings.json"
 else
+  jq --arg m "$market_name" --arg repo "$marketplace" --arg p "$plugin_name@$market_name" \
+    '. + {extraKnownMarketplaces: {($m): {source: {source: "github", repo: $repo}}}, enabledPlugins: {($p): true}}' \
+    "$kit/templates/settings.json" > "$target/.claude/settings.json"
+fi
+
+# --- Fichiers du kit : copiés (copie) ou retirés du projet (plugin) ---
+if [ "$mode" = "copy" ]; then
+  cp -R "$stage/." "$target/.claude/"
+else
+  removed=0
+  while IFS= read -r f; do
+    rel="${f#"$stage"/}"
+    if [ -f "$target/.claude/$rel" ]; then rm -f "$target/.claude/$rel"; removed=$((removed + 1)); fi
+  done < <(find "$stage" -type f)
+  find "$target/.claude" -mindepth 1 -type d -empty -delete 2>/dev/null || true
+  [ "$removed" -gt 0 ] && info "Migration vers le plugin : $removed fichiers du kit retirés de .claude/ (ils viennent maintenant du plugin)."
+fi
+
+# --- factory.json et stack.json : créés s'ils manquent, jamais écrasés ---
+if [ ! -f "$cfg" ]; then
   printf '{\n  "architecture": "%s",\n  "baseBranch": "%s"\n}\n' "$arch" "${base:-develop}" > "$cfg"
 fi
-if [ -n "$saved_stack" ]; then
-  cp "$saved_stack" "$stack"
-  rm -f "$saved_stack"
-else
-  info "stack.json créé (profil « top », intégration « postgresql ») : vérifiez qu'il correspond au projet."
-fi
-
-# --- Migration du format ≤ v3.2 : la version sort de factory.json, baseBranch apparaît ---
 if jq -e 'has("factoryVersion") or (has("baseBranch") | not)' "$cfg" >/dev/null; then
   tmp="$(mktemp)"
   jq --arg b "${base:-develop}" 'del(.factoryVersion) | .baseBranch = (.baseBranch // $b)' "$cfg" > "$tmp"
   mv "$tmp" "$cfg"
-  info "factory.json migré au format v3.3 (version retirée, baseBranch = $(jq -r .baseBranch "$cfg"))."
+  info "factory.json migré (version retirée, baseBranch = $(jq -r .baseBranch "$cfg"))."
+fi
+if [ ! -f "$stack" ]; then
+  cp "$kit/templates/stack.json" "$stack"
+  info "stack.json créé (profil « top », intégration « postgresql ») : vérifiez qu'il correspond au projet."
 fi
 
 # --- Fichiers retirés du kit par une version précédente : supprimés (ils appartenaient au kit) ---
@@ -118,13 +144,13 @@ while read -r ver path; do
   fi
 done < "$kit/tools/removed-files.txt"
 
-# --- Fichiers du projet absents du kit (signalés, jamais supprimés) ---
+# --- Fichiers inconnus dans les dossiers du kit (signalés, jamais supprimés) ---
 obsolete=""
 for dir in agents commands hooks rules skills; do
   [ -d "$target/.claude/$dir" ] || continue
   while IFS= read -r f; do
     rel="${f#"$target"/.claude/}"
-    [ -e "$kit/.claude/$rel" ] || obsolete="$obsolete\n    .claude/$rel"
+    [ -e "$stage/$rel" ] || obsolete="$obsolete\n    .claude/$rel"
   done < <(find "$target/.claude/$dir" -type f)
 done
 
@@ -140,19 +166,28 @@ for line in '*.sh    text eol=lf' '*.conf  text eol=lf'; do
 done
 
 echo
-echo "✓ Kit $version installé dans $target"
+echo "✓ Kit $version installé dans $target (mode $mode)"
 if [ -n "$obsolete" ]; then
   echo
-  echo "⚠ Ces fichiers du projet n'existent plus dans le kit (non supprimés : vérifiez s'ils sont encore utiles) :"
+  if [ "$mode" = "plugin" ]; then
+    echo "ℹ Ces fichiers propres au projet restent dans .claude/ (ils s'ajoutent au plugin) :"
+  else
+    echo "⚠ Ces fichiers du projet n'existent pas dans le kit (non supprimés : vérifiez s'ils sont encore utiles) :"
+  fi
   printf '%b\n' "${obsolete#\\n}"
 fi
 echo
 echo "Étapes suivantes :"
-if [ "$mode" = "install" ]; then
-  echo "  1. Complétez CLAUDE.md, puis lancez Claude Code à la racine du projet."
-  echo "  2. /init-architecture <premier-module>"
-else
-  echo "  1. Lisez le CHANGELOG du kit (section « À faire dans un projet existant »)."
-  echo "  2. Dans Claude Code : /update-architecture-test"
+if [ "$mode" = "plugin" ]; then
+  echo "  1. Dans Claude Code, une fois par poste :"
+  echo "       /plugin marketplace add $marketplace"
+  echo "       /plugin install $plugin_name@$market_name"
+  echo "     (les membres de l'équipe sont invités à l'installer grâce à .claude/settings.json)"
+  echo "  2. Relancez Claude Code et demandez-lui la version du kit annoncée au démarrage."
 fi
-echo "  Pensez à commiter les changements dans une branche dédiée (ex. chore/factory-v$version)."
+if [ "$action" = "install" ]; then
+  echo "  • Complétez CLAUDE.md, puis : /init-architecture <premier-module>"
+else
+  echo "  • Lisez le CHANGELOG du kit (section « À faire dans un projet existant »), puis si besoin : /update-architecture-test"
+fi
+echo "  • Commitez les changements dans une branche dédiée (ex. chore/factory-v$version)."

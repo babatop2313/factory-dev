@@ -1,5 +1,34 @@
 # Changelog
 
+## v4.0.0 — La factory devient un plugin Claude Code
+**À faire dans un projet existant** (dans une branche dédiée) :
+- **Passer au plugin (recommandé)** : dans Claude Code, `/plugin marketplace add babatop2313/factory-dev` puis
+  `/plugin install factory@factory-dev` ; ensuite `bash factory-dev/tools/install.sh <projet> --mode plugin`.
+  Le script retire de `.claude/` les fichiers copiés du kit, garde ceux propres au projet, et réécrit `settings.json`
+  (permissions + activation du plugin, sans hooks). Commandes : `/factory:feature`, ou `/feature` sans conflit de nom.
+- **Rester en mode copie** : `bash factory-dev/tools/install.sh <projet>` comme avant ; rien d'autre à faire.
+
+### Plugin
+- Le dépôt est un **plugin** (`.claude-plugin/plugin.json`, nom `factory`) et sa propre **marketplace**
+  (`.claude-plugin/marketplace.json`, nom `factory-dev`).
+- Nouvelle structure : `agents/`, `commands/`, `skills/`, `hooks/hooks.json` + `hooks/scripts/`, `rules/factory.md`,
+  `templates/` (fichiers créés dans les projets). Il n'y a plus de dossier `.claude/` dans le dépôt du kit.
+- **Version unique** dans `plugin.json` (`.claude/factory-version` n'est plus écrit qu'en mode copie).
+- Un plugin ne peut fournir ni règles de permission ni fichier `rules/` : les permissions sont écrites dans le
+  `.claude/settings.json` du projet par `install.sh`, et `session-start` injecte `rules/factory.md` en mode plugin.
+
+### Indépendance vis-à-vis de l'emplacement du kit
+- Les hooks trouvent le kit à partir de leur propre emplacement (`kit_root`, `kit_path`, `kit_mode`, `kit_version`
+  dans `lib.sh`) : même code en mode copie et en mode plugin.
+- Agents, commandes, skills et règles désignent le kit par `<kit>`, dont `session-start` annonce le chemin ;
+  l'orchestrateur le transmet aux agents (qui ne reçoivent pas le message de début de session).
+
+### Outils
+- `tools/install.sh --mode plugin|copy` (défaut : `copy`), `--marketplace <owner/repo>` ; migration copie → plugin.
+- `tools/check-references.sh` vérifie aussi le plugin : manifestes, nom cohérent avec la marketplace, version sémantique,
+  scripts déclarés dans `hooks.json`.
+- `tools/test-hooks.sh copy|plugin` : 127 scénarios en mode copie, 129 en mode plugin ; la CI joue les deux modes et la migration.
+
 ## v3.4.1 — Redis validé, retours de la première intégration
 Rien d'obligatoire dans un projet existant : mise à jour recommandée avec `tools/install.sh`.
 Si le projet utilise `mail` ou `redis` : retirer la valeur par défaut des mots de passe dans `application.yml`
