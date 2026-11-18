@@ -57,4 +57,10 @@ if has 'factory\.json'; then
     && block ".claude/factory.json est verrouillé : l'architecture du projet ne peut pas être modifiée par Claude."
 fi
 
+# --- Fichiers du projet : pas de suppression du dossier .claude/ entier ni de ses fichiers par motif (*.json…) ---
+# (factory.json, stack.json, settings.json disparaîtraient avec lui ; la règle ci-dessus ne voit pas le nom factory.json)
+CL='("|'"'"')?(\./)?\.claude(/|\\)?(\*[^[:space:];&|]*)?("|'"'"')?([[:space:]]|$|[;&|])'
+has '(^|[;&|[:space:]])(rm|git[[:space:]]+rm|git[[:space:]]+clean|Remove-Item|rmdir|rd|del)[[:space:]]([^;&|]*[[:space:]])?'"$CL" \
+  && block "suppression du dossier .claude/ (ou de ses fichiers par motif) : il contient les fichiers du projet (factory.json, stack.json, settings.json). Supprime un fichier précis, avec l'accord de l'humain."
+
 exit 0
