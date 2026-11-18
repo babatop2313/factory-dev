@@ -52,13 +52,15 @@ else
 fi
 echo "  <kit> = $(kit_path "")"
 brel=$(backend_rel); frel=$(frontend_rel)
-echo "Dossiers du projet : <backend> = $brel · <frontend> = $frel (champs backend et frontend de .claude/factory.json)."
+echo "Dossiers du projet : <backend> = $brel · <frontend> = ${frel:-aucun} (champs backend et frontend de .claude/factory.json)."
 if ! safe_rel "$brel"; then
   echo "⛔ Le dossier backend « $brel » est invalide (chemin absolu ou « .. ») : n'écris aucun code backend et signale-le à l'humain."
 elif [ ! -f "$(backend_dir)/pom.xml" ]; then
   echo "⚠ Aucun pom.xml dans « $brel » : le backend est introuvable. Signale-le à l'humain avant toute tâche backend."
 fi
-if ! safe_rel "$frel"; then
+if [ -z "$frel" ]; then
+  echo "  (aucun frontend déclaré : n'écris pas de code Angular ; pour en ajouter un, l'humain lance /top-factory:init)"
+elif ! safe_rel "$frel"; then
   echo "⛔ Le dossier frontend « $frel » est invalide (chemin absolu ou « .. ») : signale-le à l'humain."
 elif [ ! -d "$(frontend_dir)" ]; then
   echo "  (pas de frontend dans « $frel » pour l'instant)"

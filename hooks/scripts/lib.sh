@@ -73,12 +73,12 @@ active_architecture() {
 }
 
 # Dossiers du backend et du frontend, relatifs à la racine du projet (.claude/factory.json, champs backend et frontend).
-# Par défaut « backend » et « frontend » ; « . » désigne la racine du dépôt.
+# Champ absent (projet d'avant la v4.1) : « backend » / « frontend ». « . » = racine du dépôt.
+# frontend à null : aucun frontend (frontend_rel renvoie une chaîne vide).
 dir_rel() {
   local v
-  v=$(jq -r --arg k "$1" '.[$k] // empty' "$(project_root)/.claude/factory.json" 2>/dev/null | tr -d '\r')
-  v="${v%/}"
-  printf '%s' "${v:-$2}"
+  v=$(jq -r --arg k "$1" --arg d "$2" 'if has($k) then (.[$k] // "") else $d end' "$(project_root)/.claude/factory.json" 2>/dev/null | tr -d '\r')
+  printf '%s' "${v%/}"
 }
 backend_rel()  { dir_rel backend backend; }
 frontend_rel() { dir_rel frontend frontend; }
@@ -88,7 +88,7 @@ safe_rel() {
   return 0
 }
 dir_abs() {
-  local rel="$1"; safe_rel "$rel" || return 1
+  local rel="$1"; [ -n "$rel" ] || return 1; safe_rel "$rel" || return 1
   if [ "$rel" = "." ]; then project_root; else printf '%s/%s' "$(project_root)" "$rel"; fi
 }
 backend_dir()  { dir_abs "$(backend_rel)"; }
