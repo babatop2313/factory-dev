@@ -1,6 +1,6 @@
 # CLAUDE.md — <NOM_DU_PROJET>
 
-> Modèle de la Claude Factory. **À copier à la racine du projet sous le nom `CLAUDE.md`**, puis à compléter.
+> Modèle de la Top Factory. **À copier à la racine du projet sous le nom `CLAUDE.md`**, puis à compléter.
 > Ne contient que ce qui est propre au projet : les règles communes de la factory sont dans
 > `rules/factory.md` du kit (chargé automatiquement, en mode copie comme en mode plugin), l'architecture dans `.claude/factory.json`, et les conventions
 > et intégrations (Redis, Kafka…) dans `.claude/stack.json`.

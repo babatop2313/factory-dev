@@ -167,6 +167,14 @@ for c in $(jq -r '.. | .command? // empty' "$hj" | sed -nE 's#.*\$\{CLAUDE_PLUGI
   [ -f "$root/$c" ] || { echo "   ✗ hooks.json : script introuvable $c"; errors=$((errors+1)); }
 done
 jq -e 'has("hooks") | not' "$root/templates/settings.json" >/dev/null || { echo "   ✗ templates/settings.json ne doit pas contenir de hooks (ils sont dans hooks/hooks.json)"; errors=$((errors+1)); }
+[ -f "$root/commands/init.md" ] || { echo "   ✗ commande commands/init.md absente"; errors=$((errors+1)); }
+# Dossiers du projet : jamais « backend/ » ou « frontend/ » en dur (ils viennent de factory.json : <backend>, <frontend>).
+hard=$(grep -rnIE '(^|[^A-Za-z0-9_$<-])(backend|frontend)/' "$root/agents" "$root/commands" "$root/rules" "$root/skills" "$root/hooks" 2>/dev/null || true)
+if [ -n "$hard" ]; then
+  echo "   ✗ dossier backend/ ou frontend/ écrit en dur (utiliser <backend>, <frontend>, ou backend_dir dans les scripts) :"
+  printf '%s\n' "$hard" | sed "s#^$root/#      #" | head -10
+  errors=$((errors+1))
+fi
 echo "== $pname $pver"
 echo "   ✓ vérifié"
 

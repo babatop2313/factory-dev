@@ -1,4 +1,4 @@
-# CI du kit Claude Factory : prouve que les hooks et les outils fonctionnent sur les trois systèmes.
+# CI du kit Top Factory : prouve que les hooks et les outils fonctionnent sur les trois systèmes.
 # Sous Windows, « shell: bash » utilise le bash de Git pour Windows, comme Claude Code.
 # Sous macOS, /bin/bash est la version 3.2 : toute syntaxe de bash 4+ fait échouer ce job.
 name: factory-ci
@@ -60,5 +60,5 @@ jobs:
           fi
           bash tools/install.sh "$p" --mode plugin
           test ! -d "$p/.claude/hooks"
-          test "$(jq -r '.enabledPlugins | keys[0]' "$p/.claude/settings.json")" = "factory@factory-dev"
+          test "$(jq -r '.enabledPlugins | keys[0]' "$p/.claude/settings.json")" = "top-factory@top"
           test "$(jq -r .architecture "$p/.claude/factory.json")" = hexagonal

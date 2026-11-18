@@ -14,15 +14,22 @@ mode=$(kit_mode)
 
 # Sans jq, aucun hook ne peut lire ce que Claude Code lui envoie : les protections bloquent tout par sécurité.
 if ! command -v jq >/dev/null 2>&1; then
-  echo "⚠ CLAUDE FACTORY : jq est introuvable. Les hooks de protection bloqueront toutes les modifications tant qu'il manque."
+  echo "⚠ TOP FACTORY : jq est introuvable. Les hooks de protection bloqueront toutes les modifications tant qu'il manque."
   echo "Signale-le à l'humain avant toute autre action. $(jq_install_hint)"
   exit 0
 fi
 
 if [ ! -f "$cfg" ]; then
-  echo "⚠ CLAUDE FACTORY : .claude/factory.json est absent."
-  echo "Aucune architecture n'est configurée. N'écris aucun code backend : demande à l'humain de choisir"
-  echo "une architecture parmi : $(ls "$refs" 2>/dev/null | grep -v '^_' | tr '\n' ' ')"
+  if [ "$mode" = "plugin" ]; then
+    # Plugin activé pour tous les projets : ce projet-ci n'utilise peut-être pas la factory. Message court, sans règles.
+    echo "ℹ TOP FACTORY ${version:+v$version }est installée mais n'est pas initialisée dans ce projet (.claude/factory.json absent)."
+    echo "  Si l'humain veut l'utiliser ici : /top-factory:init. Sinon, ignore ce message : les règles de la factory"
+    echo "  ne s'appliquent pas à ce projet. <kit> = $(kit_path "")"
+  else
+    echo "⚠ TOP FACTORY : .claude/factory.json est absent."
+    echo "Aucune architecture n'est configurée. N'écris aucun code backend : demande à l'humain de choisir"
+    echo "une architecture parmi : $(ls "$refs" 2>/dev/null | grep -v '^_' | tr '\n' ' ')"
+  fi
   exit 0
 fi
 
@@ -30,21 +37,33 @@ arch=$(jq -r '.architecture // empty' "$cfg" 2>/dev/null | tr -d '\r')
 ref="$refs/$arch/REFERENCE.md"
 
 if [ -z "$arch" ] || [ ! -f "$ref" ]; then
-  echo "⚠ CLAUDE FACTORY : l'architecture « $arch » indiquée dans .claude/factory.json n'existe pas."
+  echo "⚠ TOP FACTORY : l'architecture « $arch » indiquée dans .claude/factory.json n'existe pas."
   echo "N'écris aucun code backend et signale-le à l'humain. Architectures disponibles :"
   echo "$(ls "$refs" 2>/dev/null | grep -v '^_' | tr '\n' ' ')"
   exit 0
 fi
 
 base=$(jq -r '.baseBranch // "develop"' "$cfg" 2>/dev/null | tr -d '\r')
-echo "=== CLAUDE FACTORY ${version:+v$version }— architecture du projet : $arch (verrouillée dans .claude/factory.json) ==="
+echo "=== TOP FACTORY ${version:+v$version }— architecture du projet : $arch (verrouillée dans .claude/factory.json) ==="
 if [ "$mode" = "plugin" ]; then
   echo "Kit installé comme plugin Claude Code. Dossier du kit (noté <kit> dans les règles, agents et commandes) :"
 else
   echo "Kit copié dans le projet. Dossier du kit (noté <kit> dans les règles, agents et commandes) :"
 fi
 echo "  <kit> = $(kit_path "")"
-echo "Quand tu délègues à un agent, donne-lui ce chemin et celui de la référence active : il ne reçoit pas ce message."
+brel=$(backend_rel); frel=$(frontend_rel)
+echo "Dossiers du projet : <backend> = $brel · <frontend> = $frel (champs backend et frontend de .claude/factory.json)."
+if ! safe_rel "$brel"; then
+  echo "⛔ Le dossier backend « $brel » est invalide (chemin absolu ou « .. ») : n'écris aucun code backend et signale-le à l'humain."
+elif [ ! -f "$(backend_dir)/pom.xml" ]; then
+  echo "⚠ Aucun pom.xml dans « $brel » : le backend est introuvable. Signale-le à l'humain avant toute tâche backend."
+fi
+if ! safe_rel "$frel"; then
+  echo "⛔ Le dossier frontend « $frel » est invalide (chemin absolu ou « .. ») : signale-le à l'humain."
+elif [ ! -d "$(frontend_dir)" ]; then
+  echo "  (pas de frontend dans « $frel » pour l'instant)"
+fi
+echo "Quand tu délègues à un agent, donne-lui <kit>, <backend>, <frontend> et la référence active : il ne reçoit pas ce message."
 echo "Branche d'intégration : $base (les branches feature/* partent de $base à jour)."
 echo "Avant toute tâche backend, charge le skill « architecture » et lis en entier :"
 echo "  $(kit_path "skills/architecture/references/$arch/REFERENCE.md")"
@@ -91,7 +110,7 @@ if [ -f "$stack" ]; then
   echo "Une technologie absente de cette liste ne s'ajoute que par /add-integration <techno>."
 else
   echo "ℹ .claude/stack.json est absent (projet installé avant la v3.4) : conventions = socle + profil « top »,"
-  echo "  aucune intégration déclarée. Signale à l'humain qu'il peut lancer tools/install.sh pour le créer."
+  echo "  aucune intégration déclarée. Signale à l'humain qu'il peut lancer /top-factory:init pour le créer."
 fi
 
 # Ancien format (≤ v3.2) : la version du kit était dans factory.json.
@@ -110,7 +129,7 @@ fi
 
 # Cohérence : un ArchitectureTest généré pour une autre architecture signale un changement d'architecture en cours de projet.
 search_root="$root"
-[ -d "$root/backend" ] && search_root="$root/backend"
+bdir=$(backend_dir 2>/dev/null) && [ -d "$bdir" ] && search_root="$bdir"
 at=$(find "$search_root" \( -name node_modules -o -name .git -o -name target \) -prune -o \
           -path '*/src/test/java/*' -name ArchitectureTest.java -print 2>/dev/null | head -1)
 if [ -n "$at" ]; then

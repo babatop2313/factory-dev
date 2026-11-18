@@ -1,6 +1,6 @@
-# Règles de la Claude Factory (communes à tous les projets)
+# Règles de la Top Factory (communes à tous les projets)
 
-> Fichier fourni par le kit `factory-dev`, chargé à chaque session : copié dans `.claude/rules/` (mode copie) ou injecté
+> Fichier fourni par le kit `top-factory`, chargé à chaque session : copié dans `.claude/rules/` (mode copie) ou injecté
 > par le hook `session-start` (mode plugin). **Ne pas modifier dans un projet** : il est remplacé à chaque mise à jour du kit.
 > Ce qui est propre au projet va dans le `CLAUDE.md` à la racine.
 
@@ -8,8 +8,11 @@
 - **`<kit>`** désigne le dossier du kit, annoncé au début de chaque session : `.claude` en mode copie, le dossier du
   plugin en mode plugin. Les fichiers du **projet** (`.claude/factory.json`, `.claude/stack.json`, `CLAUDE.md`) restent
   toujours dans le projet.
-- Quand tu délègues à un agent, transmets-lui le chemin de `<kit>` et celui de la référence d'architecture active :
-  un agent ne reçoit pas le message de début de session.
+- **`<backend>`** et **`<frontend>`** désignent les dossiers du backend (Spring Boot) et du frontend (Angular), relatifs
+  à la racine du projet et annoncés au début de chaque session. Ils viennent de `.claude/factory.json` (champs `backend`
+  et `frontend`, par défaut `backend` et `frontend` ; `.` = racine du dépôt). Ne suppose jamais que le backend s'appelle `backend`.
+- Quand tu délègues à un agent, transmets-lui le chemin de `<kit>`, les valeurs de `<backend>` et `<frontend>`, et le
+  chemin de la référence d'architecture active : un agent ne reçoit pas le message de début de session.
 
 ## Architecture backend
 - **L'architecture est choisie une seule fois, au démarrage du projet, dans `.claude/factory.json`** (champ `architecture`).
@@ -42,7 +45,7 @@
   d'autorisation inutiles à l'humain.
 - Le shell sert à compiler, tester, lire l'historique Git et créer des branches ou des commits.
 - Si un hook bloque une action, ne pas chercher à le contourner : corriger, ou signaler le blocage à l'humain.
-- **Commandes portables** (le kit tourne sous Windows, macOS et Linux) : lancer Maven depuis `backend/` avec `./mvnw` ;
+- **Commandes portables** (le kit tourne sous Windows, macOS et Linux) : lancer Maven depuis `<backend>` avec `./mvnw` ;
   ne pas supposer un shell précis (pas de `&&` dans PowerShell 5, pas de syntaxe propre à bash 4 dans les scripts).
 - **Données de développement** (jeu d'essai pour la base locale) : dans `docs/dev/`, **jamais dans `db/migration/`**,
   sinon Flyway les appliquerait en production. C'est l'humain qui exécute ces scripts.

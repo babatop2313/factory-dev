@@ -18,9 +18,9 @@ Crée et modifie les fichiers avec Write et Edit uniquement ; respecte l'archite
    - Point de départ, comme l'étape 1 de `/feature` : aucune modification non commitée, branche `baseBranch` à jour.
      Puis crée `chore/integration-$ARGUMENTS`.
 
-2. **Dépendances** (`backend/pom.xml`) : celles de la section « Dépendances », sans version quand le BOM Spring Boot
+2. **Dépendances** (`<backend>/pom.xml`) : celles de la section « Dépendances », sans version quand le BOM Spring Boot
    la gère. Vérifie la version de Spring Boot du projet ; si une dépendance de la référence ne correspond pas à cette
-   version, arrête-toi et signale-le. Puis `./mvnw -q dependency:tree` (depuis `backend/`) : signale tout conflit.
+   version, arrête-toi et signale-le. Puis `./mvnw -q dependency:tree` (depuis `<backend>`) : signale tout conflit.
 
 3. **Configuration** : le bloc de la section « Connexion et configuration » dans `application.yml`, avec des `${VARIABLES}`.
    Aucune valeur par défaut pour un secret. Les beans techniques éventuels (client, gestionnaire d'erreurs, TTL…)
@@ -34,7 +34,7 @@ Crée et modifie les fichiers avec Write et Edit uniquement ; respecte l'archite
 5. **Déclaration** : ajoute `$ARGUMENTS` au tableau `integrations` de `.claude/stack.json` avec Edit
    (une règle de permission demande mon accord : c'est voulu).
 
-6. **Contrôle** : `./mvnw clean test` (depuis `backend/` ; Docker doit tourner). Tout doit être vert,
+6. **Contrôle** : `./mvnw clean test` (depuis `<backend>` ; Docker doit tourner). Tout doit être vert,
    `ArchitectureTest` compris, sans modifier ses règles.
 
 7. **Clôture** : commit `chore(<integration>): branchement de $ARGUMENTS`, puis donne-moi :
@@ -43,6 +43,6 @@ Crée et modifie les fichiers avec Write et Edit uniquement ; respecte l'archite
    - la procédure de développement local (section « Développement local »), pour Windows, macOS et Linux ;
    - la suite : la feature qui l'utilisera, à lancer avec `/feature`.
    Si la référence était « non testée » et que tout a fonctionné, propose de la passer à « testée » **dans le kit**
-   (`factory-dev`), avec les ajustements découverts : jamais dans la copie du projet, remplacée à chaque mise à jour.
+   (`top-factory`), avec les ajustements découverts : jamais dans la copie du projet, remplacée à chaque mise à jour.
 
 Ne pousse rien et n'ouvre pas de PR/MR sans mon accord.

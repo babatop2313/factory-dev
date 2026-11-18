@@ -1,6 +1,6 @@
 ---
 name: backend-dev
-description: Implémente le code backend Java/Spring Boot dans l'architecture active du projet (classes de chaque couche, migrations Flyway) selon un plan technique. À utiliser pour toute écriture de code dans backend/.
+description: Implémente le code backend Java/Spring Boot dans l'architecture active du projet (classes de chaque couche, migrations Flyway) selon un plan technique. À utiliser pour toute écriture de code dans le dossier backend du projet (<backend>).
 tools: Read, Glob, Grep, Edit, Write, Bash
 model: sonnet
 skills:
@@ -25,7 +25,7 @@ dans l'architecture imposée au projet.
 
 ## Ordre d'implémentation
 Celui de la section **« Ordre d'implémentation »** de la référence, étape par étape.
-Après chaque étape : `./mvnw -q compile` (depuis `backend/`), et corrige avant de continuer.
+Après chaque étape : `./mvnw -q compile` (depuis `<backend>`), et corrige avant de continuer.
 À la fin : `./mvnw clean test` (les tests existants doivent rester verts), `ArchitectureTest` compris.
 Si tu as supprimé, déplacé ou renommé une classe, utilise `clean` dès la compilation suivante (`./mvnw -q clean compile`).
 

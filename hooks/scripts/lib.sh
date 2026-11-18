@@ -72,6 +72,28 @@ active_architecture() {
   jq -r '.architecture // empty' "$(project_root)/.claude/factory.json" 2>/dev/null | tr -d '\r'
 }
 
+# Dossiers du backend et du frontend, relatifs à la racine du projet (.claude/factory.json, champs backend et frontend).
+# Par défaut « backend » et « frontend » ; « . » désigne la racine du dépôt.
+dir_rel() {
+  local v
+  v=$(jq -r --arg k "$1" '.[$k] // empty' "$(project_root)/.claude/factory.json" 2>/dev/null | tr -d '\r')
+  v="${v%/}"
+  printf '%s' "${v:-$2}"
+}
+backend_rel()  { dir_rel backend backend; }
+frontend_rel() { dir_rel frontend frontend; }
+# Valeur acceptable : chemin relatif, sans « .. » ni chemin absolu (sinon on sortirait du projet).
+safe_rel() {
+  case "$1" in /*|*..*|[A-Za-z]:*|*\\*) return 1 ;; esac
+  return 0
+}
+dir_abs() {
+  local rel="$1"; safe_rel "$rel" || return 1
+  if [ "$rel" = "." ]; then project_root; else printf '%s/%s' "$(project_root)" "$rel"; fi
+}
+backend_dir()  { dir_abs "$(backend_rel)"; }
+frontend_dir() { dir_abs "$(frontend_rel)"; }
+
 # Intégrations actives (.claude/stack.json), une par ligne.
 active_integrations() {
   jq -r '(.integrations // [])[]' "$(project_root)/.claude/stack.json" 2>/dev/null | tr -d '\r'

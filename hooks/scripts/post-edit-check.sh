@@ -16,6 +16,8 @@ root=$(project_root)
 
 [ -z "$file" ] && exit 0
 [ -f "$file" ] || exit 0
+# Projet sans factory (plugin activé pour tous les projets, mais pas initialisé ici) : rien à vérifier.
+[ -f "$root/.claude/factory.json" ] || exit 0
 
 # Avertissement non bloquant, limité à une fois par heure pour ne pas noyer Claude.
 warn_once() {
@@ -31,14 +33,21 @@ warn_once() {
 
 case "$file" in
   *.java)
-    backend="$root/backend"
-    [ -d "$backend" ] || exit 0
+    brel=$(backend_rel)
+    if ! backend=$(backend_dir); then
+      warn_once "TOP FACTORY : le dossier backend déclaré dans .claude/factory.json (« $brel ») est invalide (chemin absolu ou « .. »). La compilation après chaque modification n'est PAS vérifiée : signale-le à l'humain."
+      exit 0
+    fi
+    if [ ! -d "$backend" ]; then
+      warn_once "TOP FACTORY : le dossier backend « $brel » (.claude/factory.json) est introuvable. La compilation après chaque modification n'est PAS vérifiée : signale-le à l'humain."
+      exit 0
+    fi
     if [ -f "$backend/mvnw" ]; then
       mvn_cmd=(sh ./mvnw)
     elif command -v mvn >/dev/null 2>&1; then
       mvn_cmd=(mvn)
     else
-      warn_once "CLAUDE FACTORY : ni backend/mvnw ni mvn n'est disponible, la compilation après chaque modification n'est PAS vérifiée. Compile toi-même (./mvnw -q compile) avant de déclarer la tâche terminée, et signale-le à l'humain."
+      warn_once "TOP FACTORY : ni $brel/mvnw ni mvn n'est disponible, la compilation après chaque modification n'est PAS vérifiée. Compile toi-même (./mvnw -q compile) avant de déclarer la tâche terminée, et signale-le à l'humain."
       exit 0
     fi
 
@@ -54,11 +63,12 @@ case "$file" in
 
     # Échec qui n'est pas une erreur de code : wrapper qui ne démarre pas, réseau, dépendance absente en mode hors ligne…
     first=$(printf '%s\n' "$out" | grep -m1 -E 'ERROR|Error|error|Failed|failed' || printf '%s\n' "$out" | head -1)
-    warn_once "CLAUDE FACTORY : la compilation n'a pas pu être lancée (${mvn_cmd[*]} -q -o compile) — ce n'est pas une erreur dans le code. Cause probable : Maven ou le wrapper ne démarre pas, ou une dépendance n'est pas encore téléchargée (mode hors ligne). Premier message : ${first:0:300}. Lance ./mvnw -q compile sans -o pour vérifier, et signale-le à l'humain si le problème persiste."
+    warn_once "TOP FACTORY : la compilation n'a pas pu être lancée (${mvn_cmd[*]} -q -o compile) — ce n'est pas une erreur dans le code. Cause probable : Maven ou le wrapper ne démarre pas, ou une dépendance n'est pas encore téléchargée (mode hors ligne). Premier message : ${first:0:300}. Lance ./mvnw -q compile sans -o pour vérifier, et signale-le à l'humain si le problème persiste."
     exit 0 ;;
   *.ts|*.html|*.scss)
-    if [ -x "$root/frontend/node_modules/.bin/prettier" ]; then
-      "$root/frontend/node_modules/.bin/prettier" --write "$file" >/dev/null 2>&1 || true
+    front=$(frontend_dir) || exit 0
+    if [ -x "$front/node_modules/.bin/prettier" ]; then
+      "$front/node_modules/.bin/prettier" --write "$file" >/dev/null 2>&1 || true
     fi ;;
 esac
 
