@@ -9,6 +9,8 @@
 #
 #   --backend / --frontend  dossiers du backend (pom.xml Spring Boot) et du frontend (angular.json), relatifs au projet ;
 #                 « . » = racine. Détectés automatiquement s'ils ne sont pas précisés (écrits dans factory.json).
+#                 Le backend doit exister. Sans frontend détecté ni demandé : aucun frontend (null) ; un --frontend
+#                 vers un dossier qui n'existe pas encore est accepté (frontend à créer).
 #   --integrations  intégrations déclarées dans stack.json à sa création (défaut : postgresql).
 #   --mode copy   (défaut) copie le kit dans <projet>/.claude (agents, commandes, skills, hooks, règles).
 #   --mode plugin n'écrit que les fichiers du projet ; le kit est fourni par le plugin Claude Code « factory ».
@@ -92,6 +94,12 @@ if [ "$detect" = 1 ]; then
   echo "factory.json : $([ -f "$cfg" ] && jq -c . "$cfg" || echo absent)"
   echo "backend : $(printf '%s' "$backends" | tr '\n' ' ')"
   echo "frontend : $(printf '%s' "$frontends" | tr '\n' ' ')"
+  at="$(find "$target" -maxdepth 8 \( -name node_modules -o -name .git -o -name target \) -prune -o -path '*/src/test/java/*' -name ArchitectureTest.java -print 2>/dev/null | head -1)"
+  if [ -n "$at" ]; then
+    echo "ArchitectureTest : ${at#"$target"/} ($(head -1 "$at" | tr -d '\r' | sed -n 's#^// architecture: *##p'))"
+  else
+    echo "ArchitectureTest : absent"
+  fi
   echo "architectures : $(available_architectures)"
   echo "integrations : $(ls "$kit/skills/integrations/references" | grep -v '^_' | tr '\n' ' ')"
   exit 0
@@ -101,7 +109,10 @@ pick_dir() { # <type> <valeur demandée> <candidats> <défaut>
   if [ -n "$want" ]; then
     want="${want%/}"
     safe_rel "$want" || die "--$kind « $want » : chemin relatif au projet attendu (ni absolu, ni « .. »)."
-    [ -d "$target/$want" ] || die "--$kind « $want » : dossier introuvable dans $target."
+    if [ ! -d "$target/$want" ]; then
+      [ "$kind" = frontend ] || die "--$kind « $want » : dossier introuvable dans $target."
+      echo "• frontend « $want » : dossier à créer (il n'existe pas encore)." >&2
+    fi
     printf '%s' "$want"; return
   fi
   n="$(printf '%s' "$cands" | grep -c . || true)"
@@ -144,7 +155,7 @@ fi
 # --- Vérifications avant toute écriture : dossiers et intégrations ---
 if [ "$action" = "install" ]; then
   backend="$(pick_dir backend "$backend" "$backends" backend)"
-  frontend="$(pick_dir frontend "$frontend" "$frontends" frontend)"
+  frontend="$(pick_dir frontend "$frontend" "$frontends" "")"
 fi
 if [ -n "$integrations" ] && [ ! -f "$stack" ]; then
   for i in $(printf '%s' "$integrations" | tr ',' ' '); do
@@ -192,15 +203,16 @@ fi
 # --- factory.json et stack.json : créés s'ils manquent, jamais écrasés ---
 if [ ! -f "$cfg" ]; then
   jq -n --arg a "$arch" --arg b "${base:-develop}" --arg be "$backend" --arg fe "$frontend" \
-    '{architecture: $a, baseBranch: $b, backend: $be, frontend: $fe}' > "$cfg"
-  info "factory.json créé : architecture $arch, backend « $backend », frontend « $frontend »."
+    '{architecture: $a, baseBranch: $b, backend: $be, frontend: (if $fe == "" then null else $fe end)}' > "$cfg"
+  if [ -n "$frontend" ]; then fe_txt="« $frontend »"; else fe_txt="aucun (à ajouter plus tard avec --frontend)"; fi
+  info "factory.json créé : architecture $arch, backend « $backend », frontend $fe_txt."
   [ -f "$target/$backend/pom.xml" ] || echo "⚠ Aucun pom.xml dans « $backend » : générez le backend (start.spring.io) avant /init-architecture."
 else
-  # Champs absents (projet installé avant la v4.1) : ajoutés seulement si demandés, sinon valeurs par défaut implicites.
+  # Champ absent (projet installé avant la v4.1) ou frontend null : renseigné seulement si demandé.
   for kind in backend frontend; do
     eval "want=\$$kind"
     [ -n "$want" ] || continue
-    if ! jq -e --arg k "$kind" 'has($k)' "$cfg" >/dev/null; then
+    if jq -e --arg k "$kind" '.[$k] == null' "$cfg" >/dev/null; then
       want="$(pick_dir "$kind" "$want" "" "")"
       tmp="$(mktemp)"; jq --arg k "$kind" --arg v "$want" '.[$k] = $v' "$cfg" > "$tmp" && mv "$tmp" "$cfg"
       info "factory.json : $kind = « $want » ajouté."

@@ -305,6 +305,8 @@ A="$T/api/src/main/java/x"; mk "$A/Ok.java" 'import java.util.UUID;'
 printf '#!/bin/sh\necho "[ERROR] COMPILATION ERROR :"\necho "[ERROR] /x/Ok.java:[3,1] cannot find symbol"\nexit 1\n' > "$T/api/mvnw"
 chk 2 "compilation lancée dans le backend « api »" post-edit-check.sh "$(jp "$A/Ok.java")"
 chk_out "api/target" "rappel clean avec le bon dossier" post-bash-check.sh "$(jc 'rm api/src/main/java/x/Ok.java')"
+setfj '{ "architecture": "hexagonal", "backend": "api", "frontend": null }'
+chk_out "<frontend> = aucun" "frontend null → « aucun » annoncé" session-start.sh '{}'
 setfj '{ "architecture": "hexagonal", "backend": "absent" }'
 chk_out "Aucun pom.xml dans « absent »" "backend déclaré introuvable → signalé au démarrage" session-start.sh '{}'
 rm -f "$TMPDIR"/claude-factory-warn-*
@@ -346,6 +348,9 @@ ichk 0 "mise à jour sans option" bash "$kit/tools/install.sh" "$I/p" --mode plu
 newp; pom .
 ichk 0 "backend à la racine détecté" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --mode plugin
 if [ "$(jq -r .backend "$I/p/.claude/factory.json")" = "." ]; then pass=$((pass+1)); echo "  ✓ backend « . »"; else fail=$((fail+1)); echo "  ✗ backend à la racine"; fi
+if [ "$(jq -r .frontend "$I/p/.claude/factory.json")" = "null" ]; then pass=$((pass+1)); echo "  ✓ sans frontend détecté ni demandé → null"; else fail=$((fail+1)); echo "  ✗ frontend par défaut"; cat "$I/p/.claude/factory.json"; fi
+ichk 0 "frontend ajouté plus tard (champ null), dossier à créer accepté" bash "$kit/tools/install.sh" "$I/p" --mode plugin --frontend web
+if [ "$(jq -r .frontend "$I/p/.claude/factory.json")" = "web" ]; then pass=$((pass+1)); echo "  ✓ frontend « web » enregistré"; else fail=$((fail+1)); echo "  ✗ frontend ajouté"; fi
 newp; pom . ; pom module-a
 ichk 0 "multi-modules : le parent seul est retenu" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --mode plugin
 newp; pom service-a; pom service-b
@@ -353,6 +358,7 @@ ichk 1 "deux backends sans --backend → refusé" bash "$kit/tools/install.sh" "
 if [ ! -e "$I/p/.claude" ]; then pass=$((pass+1)); echo "  ✓ refus avant toute écriture"; else fail=$((fail+1)); echo "  ✗ .claude/ écrit malgré le refus"; fi
 ichk 0 "deux backends avec --backend" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --mode plugin --backend service-b
 newp; pom api
+ichk 1 "--backend vers un dossier absent → refusé" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --backend absent
 ichk 1 "--backend hors du projet → refusé" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --backend ../x
 ichk 1 "intégration inconnue → refusée" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --integrations postgresql,oracle
 newp; pom api

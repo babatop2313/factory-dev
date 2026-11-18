@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.1.1 — Retours du premier essai de `/top-factory:init`
+**À faire dans un projet existant** : si `.claude/factory.json` indique `"frontend": "frontend"` alors que le projet
+n'a pas de frontend, remplacer à la main par `"frontend": null` (Claude ne modifie pas ce fichier).
+
+- **Frontend absent** : sans frontend détecté ni demandé, `factory.json` indique `"frontend": null` au lieu d'une valeur
+  par défaut silencieuse ; le démarrage annonce « aucun frontend ». `--frontend` accepte un dossier encore à créer et
+  peut renseigner plus tard un frontend `null` (le backend, lui, doit exister).
+- **Projet déjà initialisé** : `--detect` signale l'`ArchitectureTest` existant ; `/top-factory:init` ne propose alors pas
+  `/init-architecture`, qui refuse en outre un module déjà présent (un module existant évolue par `/feature`).
+- **Clôture d'init** : commit dans une branche partie de la branche d'intégration à jour, fichiers ajoutés explicitement,
+  jamais `settings.local.json` ; Claude signale un index déjà chargé.
+- Tests : 162 scénarios en mode copie, 165 en mode plugin.
+
 ## v4.1.0 — Top Factory : nouveau nom, commande init, dossiers configurables
 **À faire dans un projet existant** (dans une branche dédiée, par exemple `chore/top-factory-v4.1.0`) :
 1. Dans Claude Code, remplacer l'ancien plugin : `/plugin uninstall factory@factory-dev`, `/plugin marketplace remove factory-dev`,
