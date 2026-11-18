@@ -16,11 +16,16 @@
 ### `/top-factory:init`
 - Initialise un projet **depuis Claude** : détection, questions (architecture, branche, intégrations, dossiers),
   récapitulatif et accord, puis appel de `install.sh`. Toute l'écriture reste dans le script (réutilisable par d'autres outils).
-- Sur un projet initialisé : mise à jour, sans question sur l'architecture.
+- Sur un projet initialisé : mise à jour, sans question sur l'architecture. `--detect` indique aussi si un
+  `ArchitectureTest` existe : `init` ne propose alors pas `/init-architecture`, qui refuse en outre un module déjà présent.
+- Clôture : commit dans une branche partie de la branche d'intégration, fichiers ajoutés explicitement, jamais
+  `settings.local.json`.
 - Mode plugin seulement : en mode copie, la commande s'appellerait `/init`, comme la commande intégrée de Claude Code.
 
 ### Dossiers backend et frontend configurables
-- Nouveaux champs `backend` et `frontend` dans `.claude/factory.json` (défaut `backend`, `frontend` ; `.` = racine).
+- Nouveaux champs `backend` et `frontend` dans `.claude/factory.json` (`.` = racine ; champ absent d'un projet plus
+  ancien : `backend`, `frontend`). Sans frontend détecté ni demandé : `"frontend": null` (aucun frontend annoncé, ajout
+  ultérieur par `/top-factory:init` ou `--frontend`, qui accepte un dossier encore à créer ; le backend doit exister).
 - `install.sh` les détecte (`pom.xml` Spring Boot, `angular.json`, profondeur 2, parent d'un multi-modules) ;
   options `--backend`, `--frontend`, `--detect`, `--integrations` ; refuse un chemin absolu ou avec `..`, et refuse
   de changer un dossier déjà déclaré. Les vérifications ont lieu avant toute écriture.
@@ -36,7 +41,7 @@
   `clean` ne s'appliquent pas. Les protections (`guard-bash`, `guard-files`, `guard-mcp-sql`) restent actives partout.
 
 ### Tests
-- `test-hooks.sh` : 157 scénarios en mode copie, 160 en mode plugin (dossiers, backend à la racine, multi-modules,
+- `test-hooks.sh` : 162 scénarios en mode copie, 165 en mode plugin (dossiers, backend à la racine, multi-modules,
   plusieurs backends, refus avant écriture, projet non initialisé, mode copie sans `init`).
 
 ## v4.0.0 — La factory devient un plugin Claude Code

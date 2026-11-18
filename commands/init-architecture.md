@@ -12,7 +12,10 @@ Premier module : $ARGUMENTS
 2. **Garde-fou** : cherche un `ArchitectureTest.java` existant dans `<backend>/src/test/java/`.
    - S'il existe et que sa première ligne indique une **autre** architecture (`// architecture: <autre>`) : **arrête-toi**,
      le projet a déjà été initialisé avec une autre architecture. Ne change rien.
-   - S'il existe avec la même architecture : le projet est déjà initialisé. Passe directement à l'étape 6 pour le nouveau module.
+   - S'il existe avec la même architecture : le projet est déjà initialisé. Si le module `$ARGUMENTS` existe déjà
+     (un package `<basePackage>.$ARGUMENTS` dans `<backend>/src/main/java/`) : **arrête-toi** sans rien modifier,
+     il n'y a rien à initialiser ; les évolutions d'un module existant passent par `/feature`.
+     Sinon, passe directement à l'étape 6 pour ce nouveau module.
 3. Lis `<backend>/pom.xml` et détermine le package racine réel (`<basePackage>`).
 4. Ajoute au `pom.xml` (scope `test`) la dépendance `com.tngtech.archunit:archunit-junit5` si elle est absente.
    Si tu ne connais pas la dernière version avec certitude, mets une propriété `${archunit.version}` et signale-le-moi.
