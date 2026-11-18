@@ -1,5 +1,14 @@
 # Changelog
 
+## v4.1.2 — Le dossier `.claude/` ne se supprime plus en bloc
+Rien à faire dans un projet existant : mettre à jour le plugin.
+
+- `guard-bash` bloque la suppression du dossier `.claude/` entier ou de ses fichiers par motif (`git rm -r .claude`,
+  `rm -rf .claude`, `Remove-Item -Recurse .claude`, `git rm .claude/*.json`…) : `factory.json`, `stack.json` et
+  `settings.json` disparaissaient avec lui sans que la règle de verrou, qui cherche le nom `factory.json`, ne le voie.
+  Supprimer un fichier précis reste possible (avec l'accord de l'humain).
+- Constat sur Bibliothèque : les trois fichiers du projet supprimés et indexés deux fois, cause encore inconnue.
+
 ## v4.1.1 — Retours du premier essai de `/top-factory:init`
 **À faire dans un projet existant** : si `.claude/factory.json` indique `"frontend": "frontend"` alors que le projet
 n'a pas de frontend, remplacer à la main par `"frontend": null` (Claude ne modifie pas ce fichier).
