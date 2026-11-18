@@ -1,20 +1,22 @@
-# Claude Factory — kit de software factory réutilisable
+# Top Factory — kit de software factory réutilisable
 
 Une « usine logicielle » pilotée par Claude Code pour un stack **Java/Spring Boot + Angular + PostgreSQL**,
 avec une **architecture backend au choix**, fixée une fois pour toutes au démarrage de chaque projet.
 
-Depuis la v4, le kit est un **plugin Claude Code** (`factory`), distribué par ce dépôt, qui est aussi sa marketplace
-(`factory-dev`). Le mode « copie » dans `.claude/` reste disponible.
+Depuis la v4, le kit est un **plugin Claude Code** (`top-factory`), distribué par ce dépôt, qui est aussi sa marketplace
+(`top`). Le mode « copie » dans `.claude/` reste disponible.
 
 | | Mode plugin (recommandé) | Mode copie |
 |---|---|---|
 | Où vit le kit | Dans le plugin, partagé par tous les projets | Copié dans `.claude/` de chaque projet |
 | Dans le projet | `factory.json`, `stack.json`, `settings.json`, `CLAUDE.md` | Tout le kit + ces fichiers |
-| Mise à jour | Menu `/plugin`, puis `install.sh --mode plugin` si le CHANGELOG le demande | `install.sh` |
-| Commandes | `/factory:feature` (ou `/feature` s'il n'y a pas de conflit) | `/feature` |
+| Initialisation | `/top-factory:init`, dans Claude | `install.sh` |
+| Mise à jour | Menu `/plugin`, puis `/top-factory:init` si le CHANGELOG le demande | `install.sh` |
+| Commandes | `/top-factory:feature` (ou `/feature` s'il n'y a pas de conflit) | `/feature` |
 
 ```
- .claude/factory.json  { "architecture": "couche" | "hexagonal" | …, "baseBranch": "develop" }  ← choisi par l'humain, verrouillé
+ .claude/factory.json  { "architecture": "couche" | "hexagonal" | …, "baseBranch": "develop",
+                         "backend": "backend", "frontend": "frontend" }      ← choisi par l'humain, verrouillé
           │
           ▼
  skill « architecture » → references/<architecture>/REFERENCE.md           ← la seule référence appliquée
@@ -63,9 +65,9 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | Élément | Rôle |
 |---|---|
 | `.claude-plugin/plugin.json` | Manifeste du plugin `factory` (nom, **version**) |
-| `.claude-plugin/marketplace.json` | Marketplace `factory-dev` : ce dépôt distribue le plugin |
+| `.claude-plugin/marketplace.json` | Marketplace `top` : ce dépôt distribue le plugin |
 | `agents/` | 6 sous-agents génériques |
-| `commands/` | `/init-architecture`, `/update-architecture-test`, `/feature`, `/add-integration`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
+| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/add-integration`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
 | `skills/architecture/` | Aiguilleur + `references/couche`, `references/hexagonal`, `references/_template` |
 | `skills/conventions/` | Socle non négociable, profil `top`, options (mapping, lombok, errors, ids) |
 | `skills/integrations/` | Une référence par technologie (postgresql, redis, mail, stockage-objet, rabbitmq, kafka) + vocabulaire des rôles |
@@ -82,7 +84,7 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `docs/` | `ROADMAP.md`, `ROADMAP-MCP.md`, `ROADMAP-v4.md` |
 | `extras/ci/`, `extras/mcp/` | **Optionnels** : exemples de CI, serveurs MCP (GitHub, PostgreSQL en lecture seule) |
 
-**Dans chaque projet** : `.claude/factory.json` (architecture et branche d'intégration, **verrouillés**), `.claude/stack.json`
+**Dans chaque projet** : `.claude/factory.json` (architecture, branche d'intégration, dossiers backend et frontend, **verrouillés**), `.claude/stack.json`
 (stack, modifiable avec accord), `.claude/settings.json` (permissions du kit et activation du plugin ; fichier du kit,
 réécrit à chaque mise à jour — les réglages personnels vont dans `.claude/settings.local.json`) et `CLAUDE.md`.
 
@@ -101,55 +103,63 @@ l'annonce dès l'ouverture de la session.
 ## Démarrer un projet (mode plugin)
 **1. Installer le plugin**, une fois par poste, dans Claude Code :
 ```
-/plugin marketplace add babatop2313/factory-dev
-/plugin install factory@factory-dev
+/plugin marketplace add babatop2313/top-factory
+/plugin install top-factory@top
 ```
 Le dépôt peut être privé : Claude Code utilise alors vos identifiants Git (GitHub).
 
-**2. Préparer le projet** avec le script du kit, cloné à côté du projet (`factory-dev/` et `mon-projet/` dans le même dossier) :
-```bash
-bash factory-dev/tools/install.sh mon-projet --architecture hexagonal --mode plugin   # ou couche ; --base-branch main si besoin
-```
-**Windows (PowerShell)** : dans PowerShell, `bash` seul lance **WSL** (erreur `execvpe(/bin/bash) failed`) ;
-utiliser le chemin complet du bash de Git, ou une fenêtre Git Bash :
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" factory-dev/tools/install.sh mon-projet --architecture hexagonal --mode plugin
-```
-Le script crée `.claude/factory.json` (architecture et branche d'intégration, **verrouillés**), `.claude/stack.json`,
-`.claude/settings.json` (permissions du kit ; il invite aussi les autres membres de l'équipe à installer le plugin)
-et `CLAUDE.md` (à compléter), et complète `.gitattributes`. Un plugin ne peut pas fournir de règles de permission :
-c'est pourquoi le script les écrit dans le projet.
+**2. Créer le projet** : un dépôt Git avec un backend Spring Boot (start.spring.io), dans le dossier de votre choix
+(`backend/`, `library-api/`, ou à la racine).
 
-**3. Dans Claude**, à la racine du projet :
+**3. Initialiser la factory**, dans Claude, à la racine du projet :
 ```
-> /factory:init-architecture catalog
-> /factory:feature Enregistrer un livre (ISBN unique, titre, auteur, nombre d'exemplaires)
+/top-factory:init
+```
+Claude détecte le backend (`pom.xml` Spring Boot) et le frontend (`angular.json`), vous demande l'architecture, la branche
+d'intégration et les intégrations, récapitule, puis lance le script du kit, qui crée `.claude/factory.json`
+(**verrouillé**), `.claude/stack.json`, `.claude/settings.json` (permissions du kit, activation du plugin) et `CLAUDE.md`,
+et complète `.gitattributes`. Un plugin ne peut pas fournir de règles de permission : c'est pourquoi le script les écrit
+dans le projet. La forme courte `/init` est celle de la commande intégrée de Claude Code : tapez le nom complet.
+
+**4. Relancer Claude**, compléter `CLAUDE.md`, puis :
+```
+> /top-factory:init-architecture catalog
+> /top-factory:feature Enregistrer un livre (ISBN unique, titre, auteur, nombre d'exemplaires)
 ```
 Les commandes d'un plugin sont préfixées par son nom ; la forme courte (`/feature`) fonctionne tant qu'aucune autre
 commande ne porte le même nom.
 
-**Mode copie** (sans plugin) : même script sans `--mode plugin`. Le kit est alors copié dans `.claude/`.
+**Sans Claude** (CI, autre outil) : le même script fait tout, `--detect` montre ce qu'il trouverait sans rien écrire :
+```bash
+bash top-factory/tools/install.sh mon-projet --detect
+bash top-factory/tools/install.sh mon-projet --architecture hexagonal --mode plugin \
+     [--backend library-api] [--frontend web] [--integrations postgresql,redis] [--base-branch main]
+```
+Windows (PowerShell) : `bash` seul lance **WSL** ; utiliser `& "C:\Program Files\Git\bin\bash.exe" …` ou Git Bash.
+
+**Mode copie** (sans plugin) : le script sans `--mode plugin` copie le kit dans `.claude/` (commandes sans préfixe,
+pas de commande `init`, qui entrerait en conflit avec `/init` de Claude Code).
 
 ## Mettre à jour
 **Mode plugin** :
-1. Dans Claude Code : `/plugin marketplace update factory-dev`, puis mettre à jour le plugin `factory` depuis le menu
+1. Dans Claude Code : `/plugin marketplace update top`, puis mettre à jour le plugin `top-factory` depuis le menu
    `/plugin`, et relancer Claude Code (ou `/reload-plugins`). Le démarrage annonce la nouvelle version.
-2. Si le `CHANGELOG.md` le demande (« À faire dans un projet existant ») : `bash factory-dev/tools/install.sh mon-projet --mode plugin`
-   pour réécrire `.claude/settings.json`, puis `/factory:update-architecture-test` si l'`ArchitectureTest` a changé.
+2. Si le `CHANGELOG.md` le demande (« À faire dans un projet existant ») : `/top-factory:init` (mise à jour : aucune
+   question sur l'architecture), puis `/top-factory:update-architecture-test` si l'`ArchitectureTest` a changé.
 
-**Mode copie** : `cd factory-dev && git pull && cd .. && bash factory-dev/tools/install.sh mon-projet`.
+**Mode copie** : `git pull` dans le dépôt du kit, puis `bash top-factory/tools/install.sh mon-projet`.
 
-**Passer un projet du mode copie au mode plugin** : `bash factory-dev/tools/install.sh mon-projet --mode plugin`.
+**Passer un projet du mode copie au mode plugin** : `bash top-factory/tools/install.sh mon-projet --mode plugin`.
 Le script retire de `.claude/` les fichiers copiés du kit, conserve ceux propres au projet (agents ou skills maison,
 qui s'ajoutent au plugin), et réécrit `settings.json` sans les hooks (le plugin les fournit). À faire dans une branche dédiée.
 
-Dans tous les cas, le script refuse tout changement d'architecture, conserve `factory.json` et `stack.json`, et ne touche
-ni à `settings.local.json` ni au `CLAUDE.md` du projet.
+Dans tous les cas, le script refuse tout changement d'architecture et de dossier backend ou frontend déjà déclaré,
+conserve `factory.json` et `stack.json`, et ne touche ni à `settings.local.json` ni au `CLAUDE.md` du projet.
 
 ## Modifier le plugin
 Le plugin, c'est ce dépôt. On le modifie comme avant :
 1. Branche, modifications, `bash tools/check-references.sh`, `bash tools/test-hooks.sh copy` et `bash tools/test-hooks.sh plugin`.
-2. **Tester en local sans rien publier** : `claude --plugin-dir ../factory-dev` depuis un projet charge directement
+2. **Tester en local sans rien publier** : `claude --plugin-dir ../top-factory` depuis un projet charge directement
    la copie de travail du plugin (relancer Claude, ou `/reload-plugins`, après chaque modification).
 3. Monter la version dans `.claude-plugin/plugin.json`, noter le changement dans `CHANGELOG.md`, PR, fusion, tag.
 4. Chaque poste récupère la nouvelle version avec la mise à jour du plugin.
@@ -199,6 +209,7 @@ L'architecture ne change jamais ; la stack, elle, évolue. Elle est décrite dan
 | Règle `deny` dans `.claude/settings.json` du projet | double protection sur l'édition |
 | Marqueur `// architecture: <nom>` en tête d'`ArchitectureTest.java` | `session-start.sh` signale toute incohérence avec `factory.json` |
 | `/init-architecture` | refuse d'initialiser un projet déjà initialisé avec une autre architecture |
+| `/top-factory:init` | n'écrit rien lui-même : il appelle `install.sh`, qui ne change jamais une architecture ni un dossier déjà déclarés |
 
 Ces protections empêchent Claude et les erreurs de manipulation de changer l'architecture.
 Un humain peut toujours éditer les fichiers à la main : changer d'architecture reste une décision humaine et consciente.

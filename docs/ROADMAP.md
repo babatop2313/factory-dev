@@ -1,4 +1,4 @@
-# Parcours de montée en compétences — Claude Factory
+# Parcours de montée en compétences — Top Factory
 
 Six niveaux, chacun découpé en exercices pas à pas. Chaque exercice donne :
 **l'objectif**, **les étapes** (avec les prompts exacts à taper), **ce qu'il faut observer**, **le résultat attendu**,
@@ -43,7 +43,7 @@ Règles métier que tu implémenteras au fil des exercices :
 4. Ajoute un `docker-compose.yml` à la racine avec un service PostgreSQL 16 (base `library`, port 5432).
 5. Vérifie : `cd backend && ./mvnw test` passe, `cd frontend && npm start` affiche la page Angular.
 6. `git init`, premier commit.
-7. Installe le kit : `bash factory-dev/tools/install.sh bibliotheque --architecture hexagonal`
+7. Installe le kit : `bash top-factory/tools/install.sh bibliotheque --architecture hexagonal`
    (sous Windows, avec le bash de Git for Windows ; voir le README).
    **Supprime le `CLAUDE.md` que le script vient de créer** : l'écrire toi-même est l'objet de l'exercice 1.1.
    Pour l'exercice 1.1, retire aussi temporairement `.claude/rules/factory.md` (mets-le de côté), sinon les règles communes

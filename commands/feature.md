@@ -8,8 +8,8 @@ Fonctionnalité demandée : $ARGUMENTS
 Tu es l'orchestrateur de la software factory. Délègue chaque étape au sous-agent indiqué et ne code pas toi-même.
 **Ne passe jamais à l'étape suivante tant que l'agent de l'étape en cours n'a pas rendu son résultat**,
 y compris quand il tourne en arrière-plan.
-Dans chaque délégation, indique à l'agent le chemin de `<kit>` (annoncé au début de la session) et celui de la
-référence d'architecture active : un agent ne reçoit pas le message de début de session.
+Dans chaque délégation, indique à l'agent le chemin de `<kit>`, les dossiers `<backend>` et `<frontend>` (annoncés au
+début de la session) et le chemin de la référence d'architecture active : un agent ne reçoit pas le message de début de session.
 
 0. **Architecture** : lis `.claude/factory.json` avec l'outil Read et annonce-moi l'architecture du projet.
    Si le fichier est absent ou si la référence correspondante n'existe pas, arrête-toi.

@@ -17,12 +17,12 @@ avec Write et Edit uniquement, et respecte l'architecture active.
    - **Déjà installé ?** Si `pom.xml` contient `spring-ai-starter-mcp-server`, ou si une configuration de sécurité gère `/mcp` :
      arrête-toi, liste ce qui existe déjà, et ne modifie rien.
 
-2. **Dépendances** (`backend/pom.xml`)
+2. **Dépendances** (`<backend>/pom.xml`)
    - BOM `org.springframework.ai:spring-ai-bom` dans `dependencyManagement`, à la **dernière version 2.0.x** :
      vérifie-la (Maven Central ou documentation Spring AI) et sa compatibilité avec la version de Spring Boot du projet.
      Si tu ne peux pas la vérifier, arrête-toi et demande-la-moi.
    - Starter `org.springframework.ai:spring-ai-starter-mcp-server-webmvc`, sans version (gérée par le BOM).
-   - `./mvnw -q dependency:tree` (depuis `backend/`) : signale tout conflit de version (Jackson notamment).
+   - `./mvnw -q dependency:tree` (depuis `<backend>`) : signale tout conflit de version (Jackson notamment).
 
 3. **Configuration**
    - `application.yml` : nom et version du serveur, transport Streamable HTTP, endpoint `/mcp`, scan des annotations activé.
@@ -49,7 +49,7 @@ avec Write et Edit uniquement, et respecte l'architecture active.
      `Origin` malveillant ou suffixé (`http://localhost.evil.com`, `null`, `https://…`) → 403 ; `Origin` local → accepté ;
      `Host` non local → 403.
    - Garde-fou : refus avec le profil `prod`, refus avec `server.address=0.0.0.0` ; démarrage accepté avec `127.0.0.1`.
-   - `./mvnw clean test` (depuis `backend/`) : tout doit être vert, `ArchitectureTest` compris, **sans modifier ses règles**.
+   - `./mvnw clean test` (depuis `<backend>`) : tout doit être vert, `ArchitectureTest` compris, **sans modifier ses règles**.
 
 6. **Clôture** : commit `chore(mcp): infrastructure du serveur MCP (Spring AI, profil mcp-local)`, puis donne-moi :
    - la version de Spring AI retenue et pourquoi ;
@@ -57,7 +57,7 @@ avec Write et Edit uniquement, et respecte l'architecture active.
    - le résultat des tests ;
    - la procédure de test manuel :
      ```
-     # Terminal 1, depuis backend/
+     # Terminal 1, depuis <backend>
      ./mvnw spring-boot:run "-Dspring-boot.run.profiles=mcp-local"
      # Terminal 2, à la racine du projet
      claude mcp add --transport http <nom-du-projet> http://localhost:8080/mcp

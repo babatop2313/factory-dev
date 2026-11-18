@@ -1,11 +1,18 @@
 {
-  "name": "factory",
-  "version": "4.0.0",
-  "description": "Claude Factory : software factory Java/Spring Boot pilotée par Claude Code — architecture au choix (couches, hexagonale…), conventions et intégrations, agents spécialisés, workflow /feature et garde-fous automatiques.",
+  "name": "top-factory",
+  "version": "4.1.0",
+  "description": "Top Factory : software factory Java/Spring Boot pilotée par Claude Code — architecture au choix (couches, hexagonale…), conventions et intégrations, agents spécialisés, workflow /feature et garde-fous automatiques.",
   "author": {
     "name": "Baba TOP"
   },
-  "repository": "https://github.com/babatop2313/factory-dev",
+  "repository": "https://github.com/babatop2313/top-factory",
   "license": "UNLICENSED",
-  "keywords": ["spring-boot", "java", "architecture", "hexagonal", "archunit", "software-factory"]
+  "keywords": [
+    "spring-boot",
+    "java",
+    "architecture",
+    "hexagonal",
+    "archunit",
+    "software-factory"
+  ]
 }

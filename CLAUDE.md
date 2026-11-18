@@ -1,16 +1,16 @@
-# CLAUDE.md — dépôt du kit Claude Factory
+# CLAUDE.md — dépôt du kit Top Factory
 
 > Ce dépôt **est le kit lui-même**, pas une application. Il ne contient pas de code Spring Boot.
-> Depuis la v4, c'est un **plugin Claude Code** (`factory`) et sa **marketplace** (`factory-dev`).
+> Depuis la v4, c'est un **plugin Claude Code** (`top-factory`) et sa **marketplace** (`top`).
 > Les agents, commandes, skills, hooks et règles sont destinés aux **projets** : ils ne s'appliquent pas à ce dépôt.
 > Pour les essayer, ouvrir un projet de test avec `claude --plugin-dir <chemin de ce dépôt>`.
 
 ## Ce que contient le dépôt
 | Élément | Rôle |
 |---|---|
-| `.claude-plugin/plugin.json` | Manifeste du plugin : nom `factory`, **version du kit** (source unique) |
-| `.claude-plugin/marketplace.json` | Marketplace `factory-dev` (`source: "./"`) |
-| `agents/`, `commands/` | Sous-agents et commandes du kit |
+| `.claude-plugin/plugin.json` | Manifeste du plugin : nom `top-factory`, **version du kit** (source unique) |
+| `.claude-plugin/marketplace.json` | Marketplace `top` (`source: "./"`) |
+| `agents/`, `commands/` | Sous-agents et commandes du kit (`commands/init.md` : mode plugin seulement, non copiée en mode copie) |
 | `skills/architecture/references/` | Une référence par architecture (`couche`, `hexagonal`) + `_template` |
 | `skills/conventions/` | Socle, profils (`top`), options (mapping, lombok, errors, ids) |
 | `skills/integrations/` | Vocabulaire des rôles (`roles.conf`) et une référence par technologie + `_template` |
@@ -18,7 +18,7 @@
 | `rules/factory.md` | Règles communes (copiées dans `.claude/rules/` ou injectées par `session-start`) |
 | `templates/` | Fichiers créés dans les projets : `factory.json`, `stack.json`, `settings.json` (permissions seulement) |
 | `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet |
-| `tools/install.sh` | Prépare ou met à jour un projet (`--mode plugin` ou `copy`) |
+| `tools/install.sh` | Prépare ou met à jour un projet (`--mode plugin` ou `copy`, `--detect`, `--backend`, `--frontend`, `--integrations`) ; appelé par `/top-factory:init` |
 | `tools/removed-files.txt` | Fichiers retirés du kit, supprimés des projets en mode copie |
 | `tools/check-references.sh` | Contrats des références et cohérence du plugin |
 | `tools/test-hooks.sh` | Tests des hooks : `copy` puis `plugin` |
@@ -28,7 +28,9 @@
 ## Travailler sur le kit
 - **Avant tout commit** : `bash tools/check-references.sh`, `bash tools/test-hooks.sh copy` et `bash tools/test-hooks.sh plugin`.
 - **Chemins** : dans les agents, commandes, skills et règles, le dossier du kit s'écrit `<kit>` (jamais `.claude/skills/…`) ;
-  les fichiers du projet restent `.claude/factory.json`, `.claude/stack.json`, `CLAUDE.md`. Dans les scripts, utiliser
+  les fichiers du projet restent `.claude/factory.json`, `.claude/stack.json`, `CLAUDE.md`. Les dossiers du projet
+  s'écrivent `<backend>` et `<frontend>` (jamais `backend/` en dur : `check-references.sh` le refuse) ; dans les
+  scripts, `backend_rel`, `backend_dir`, `frontend_rel`, `frontend_dir` de `lib.sh`. Dans les scripts, utiliser
   `kit_root`, `kit_path`, `kit_mode` et `kit_version` de `hooks/scripts/lib.sh`, qui fonctionnent dans les deux modes.
 - **Hooks** : déclarés dans `hooks/hooks.json` avec `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/…` ; ne jamais en mettre dans
   `templates/settings.json` (ils seraient en double en mode plugin).

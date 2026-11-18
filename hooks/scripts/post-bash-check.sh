@@ -8,8 +8,9 @@ need_jq skip
 
 cmd=$(jq -r '.tool_input.command // ""' | tr -d '\r')
 ncmd="${cmd//\\//}"
+[ -f "$(project_root)/.claude/factory.json" ] || exit 0
 
 if printf '%s' "$ncmd" | grep -Eq '(^|[;&|[:space:]])(rm|mv|git[[:space:]]+(rm|mv)|Remove-Item|Move-Item|Rename-Item)[[:space:]][^;&|]*(\.java|src/main/java|src/test/java)'; then
-  post_tool_context "CLAUDE FACTORY : un fichier Java a été supprimé, déplacé ou renommé. Les classes compilées de backend/target/ peuvent être obsolètes : ArchitectureTest analyse les .class et peut signaler une violation qui n'existe plus, ou en masquer une. Pour la prochaine compilation ou exécution des tests, utilise ./mvnw clean test (ou clean compile)."
+  post_tool_context "TOP FACTORY : un fichier Java a été supprimé, déplacé ou renommé. Les classes compilées de $(backend_rel)/target/ peuvent être obsolètes : ArchitectureTest analyse les .class et peut signaler une violation qui n'existe plus, ou en masquer une. Pour la prochaine compilation ou exécution des tests, utilise ./mvnw clean test (ou clean compile)."
 fi
 exit 0

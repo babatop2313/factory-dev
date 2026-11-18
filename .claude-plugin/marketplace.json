@@ -1,14 +1,14 @@
 {
-  "name": "factory-dev",
+  "name": "top",
   "owner": {
     "name": "Baba TOP"
   },
-  "description": "Claude Factory : software factory Java/Spring Boot pilotée par Claude Code.",
+  "description": "Top Factory : software factory Java/Spring Boot pilotée par Claude Code.",
   "plugins": [
     {
-      "name": "factory",
+      "name": "top-factory",
       "source": "./",
-      "description": "Claude Factory : architecture au choix, conventions, intégrations, agents et garde-fous pour Java/Spring Boot."
+      "description": "Top Factory : architecture au choix, conventions, intégrations, agents et garde-fous pour Java/Spring Boot."
     }
   ]
 }

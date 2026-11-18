@@ -8,7 +8,7 @@ pour récupérer les nouvelles règles d'une mise à jour du kit. **Ce n'est jam
 
 1. **Architecture** : lis `.claude/factory.json` avec l'outil Read (champ `architecture`).
    Si le fichier est absent ou si `<kit>/skills/architecture/references/<architecture>/ArchitectureTest.java` n'existe pas : arrête-toi.
-2. **Fichier existant** : trouve `ArchitectureTest.java` dans `backend/src/test/java/`.
+2. **Fichier existant** : trouve `ArchitectureTest.java` dans `<backend>/src/test/java/`.
    - Absent : arrête-toi et propose `/init-architecture` à la place.
    - Sa première ligne indique une **autre** architecture (`// architecture: <autre>`) : **arrête-toi**. Le projet a été initialisé
      avec une autre architecture que celle de `factory.json` : c'est une incohérence à signaler à l'humain, pas à corriger.
@@ -20,9 +20,9 @@ pour récupérer les nouvelles règles d'une mise à jour du kit. **Ce n'est jam
 5. **Mise à jour** : avec l'outil **Write** (jamais par le shell), réécris le fichier à partir du modèle de la référence,
    en remplaçant **toutes** les occurrences de `__BASE_PACKAGE__` par le package racine.
    Garde la première ligne `// architecture: <architecture>` telle quelle.
-   Vérifie que `backend/src/test/resources/archunit.properties` contient `archRule.failOnEmptyShould=false`.
+   Vérifie que `<backend>/src/test/resources/archunit.properties` contient `archRule.failOnEmptyShould=false`.
 6. **Contrôle** : vérifie qu'il ne reste aucun `__BASE_PACKAGE__` dans le fichier, puis lance
-   `./mvnw -q clean test -Dtest=ArchitectureTest`, depuis `backend/` (le `clean` évite des classes compilées obsolètes).
+   `./mvnw -q clean test -Dtest=ArchitectureTest`, depuis `<backend>` (le `clean` évite des classes compilées obsolètes).
 7. **Si une nouvelle règle échoue** : ne modifie ni la règle ni le code. Liste les violations, avec pour chacune la règle
    et la classe en cause, et propose un plan de correction. C'est une dette d'architecture révélée par la mise à jour :
    la décision appartient à l'humain.

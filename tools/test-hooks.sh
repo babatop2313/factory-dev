@@ -229,7 +229,7 @@ if [ ! -s "$T/out" ]; then pass=$((pass+1)); echo "  ✓ rm -rf target → aucun
 echo "== session-start"
 setarch hexagonal
 chk_out "architecture du projet : hexagonal" "annonce l'architecture (factory.json en CRLF)" session-start.sh '{}'
-chk_out "CLAUDE FACTORY v" "affiche la version du kit (factory-version)" session-start.sh '{}'
+chk_out "TOP FACTORY v" "affiche la version du kit (factory-version)" session-start.sh '{}'
 chk_out "Branche d'intégration : develop" "baseBranch par défaut" session-start.sh '{}'
 printf '{"architecture":"hexagonal","baseBranch":"main","factoryVersion":"3.2.0"}' > "$T/.claude/factory.json"
 chk_out "Branche d'intégration : main" "baseBranch lu dans factory.json" session-start.sh '{}'
@@ -237,7 +237,17 @@ chk_out "format v3.2" "ancien champ factoryVersion signalé" session-start.sh '{
 setarch hexagonal
 chk_out "Architecture active : hexagonale" "injecte le résumé de la référence" session-start.sh '{}'
 mv "$T/.claude/factory.json" "$T/fj"
-chk_out "factory.json est absent" "factory.json absent" session-start.sh '{}'
+if [ "$MODE" = "plugin" ]; then
+  chk_out "/top-factory:init" "factory.json absent (plugin) → proposer /top-factory:init" session-start.sh '{}'
+  chk_out "ne s'appliquent pas" "factory.json absent (plugin) → règles non imposées" session-start.sh '{}'
+else
+  chk_out "factory.json est absent" "factory.json absent" session-start.sh '{}'
+fi
+printf '#!/bin/sh\necho "[ERROR] /x/Ok.java:[3,1] cannot find symbol"\nexit 1\n' > "$T/backend/mvnw"
+chk 0 "projet non initialisé → pas de compilation" post-edit-check.sh "$(jp "$J/catalog/domain/model/Ok.java")"
+printf '%s' "$(jc 'rm backend/src/main/java/a/A.java')" | bash "$H/post-bash-check.sh" >"$T/out" 2>&1
+if [ ! -s "$T/out" ]; then pass=$((pass+1)); echo "  ✓ projet non initialisé → pas de rappel clean"; else fail=$((fail+1)); echo "  ✗ projet non initialisé → message inattendu"; fi
+rm -f "$T/backend/mvnw"
 mv "$T/fj" "$T/.claude/factory.json"
 setarch clean
 chk_out "n'existe pas" "architecture inconnue" session-start.sh '{}'
@@ -275,13 +285,81 @@ if [ "$MODE" = "plugin" ]; then
   chk_out "Kit installé comme plugin" "mode plugin annoncé" session-start.sh '{}'
   chk_out "<kit> = $P" "chemin absolu du plugin annoncé" session-start.sh '{}'
   chk_out "## Règles non négociables" "règles de factory.md injectées (pas de .claude/rules/ en mode plugin)" session-start.sh '{}'
-  chk_out "CLAUDE FACTORY v$(jq -r .version "$kit/.claude-plugin/plugin.json")" "version lue dans plugin.json" session-start.sh '{}'
+  chk_out "TOP FACTORY v$(jq -r .version "$kit/.claude-plugin/plugin.json")" "version lue dans plugin.json" session-start.sh '{}'
 else
   chk_out "<kit> = .claude" "kit dans .claude/ annoncé" session-start.sh '{}'
   printf '{}' | bash "$H/session-start.sh" > "$T/out" 2>&1
   if grep -q "## Règles non négociables" "$T/out"; then fail=$((fail+1)); echo "  ✗ mode copie : les règles ne doivent pas être injectées (déjà dans .claude/rules/)"
   else pass=$((pass+1)); echo "  ✓ mode copie : règles non injectées (chargées depuis .claude/rules/)"; fi
 fi
+
+echo "== dossiers backend et frontend (factory.json)"
+setfj() { printf '%s\r\n' "$1" > "$T/.claude/factory.json"; }
+rm -f "$TMPDIR"/claude-factory-warn-*
+setfj '{ "architecture": "hexagonal", "backend": "api", "frontend": "web" }'
+mkdir -p "$T/api" && printf '<project>spring-boot</project>' > "$T/api/pom.xml"
+chk_out "<backend> = api · <frontend> = web" "dossiers annoncés au démarrage" session-start.sh '{}'
+printf '{}' | bash "$H/session-start.sh" > "$T/out" 2>&1
+if grep -q "Aucun pom.xml" "$T/out"; then fail=$((fail+1)); echo "  ✗ backend « api » présent : aucun avertissement attendu"; else pass=$((pass+1)); echo "  ✓ backend « api » trouvé"; fi
+A="$T/api/src/main/java/x"; mk "$A/Ok.java" 'import java.util.UUID;'
+printf '#!/bin/sh\necho "[ERROR] COMPILATION ERROR :"\necho "[ERROR] /x/Ok.java:[3,1] cannot find symbol"\nexit 1\n' > "$T/api/mvnw"
+chk 2 "compilation lancée dans le backend « api »" post-edit-check.sh "$(jp "$A/Ok.java")"
+chk_out "api/target" "rappel clean avec le bon dossier" post-bash-check.sh "$(jc 'rm api/src/main/java/x/Ok.java')"
+setfj '{ "architecture": "hexagonal", "backend": "absent" }'
+chk_out "Aucun pom.xml dans « absent »" "backend déclaré introuvable → signalé au démarrage" session-start.sh '{}'
+rm -f "$TMPDIR"/claude-factory-warn-*
+chk_out "introuvable" "backend déclaré introuvable → avertissement à la compilation" post-edit-check.sh "$(jp "$A/Ok.java")"
+setfj '{ "architecture": "hexagonal", "backend": "../ailleurs" }'
+chk_out "invalide" "backend hors du projet refusé" session-start.sh '{}'
+setfj '{ "architecture": "hexagonal", "backend": "." }'
+printf '<project>spring-boot</project>' > "$T/pom.xml"
+printf '#!/bin/sh\necho "[ERROR] /x/Ok.java:[3,1] cannot find symbol"\nexit 1\n' > "$T/mvnw"
+chk_out "<backend> = \." "backend à la racine annoncé" session-start.sh '{}'
+chk 2 "backend à la racine : compilation lancée depuis la racine" post-edit-check.sh "$(jp "$A/Ok.java")"
+rm -rf "$T/api" "$T/pom.xml" "$T/mvnw"
+setarch hexagonal
+
+echo "== install.sh : nouveau projet"
+I="$(mktemp -d)"
+ichk() { # <code attendu> <libellé> <commande…>
+  local exp=$1 label=$2; shift 2
+  "$@" >"$I/out" 2>&1; local got=$?
+  if [ "$got" -eq "$exp" ]; then pass=$((pass+1)); echo "  ✓ [$got] $label"
+  else fail=$((fail+1)); echo "  ✗ [$got, attendu $exp] $label"; sed 's/^/      /' "$I/out" | tail -3; fi
+}
+newp() { rm -rf "$I/p"; mkdir -p "$I/p"; }
+pom() { mkdir -p "$I/p/$1"; printf '<project><parent>spring-boot-starter-parent</parent></project>' > "$I/p/$1/pom.xml"; }
+newp; pom api; mkdir -p "$I/p/web" && printf '{}' > "$I/p/web/angular.json"
+ichk 0 "--detect" bash "$kit/tools/install.sh" "$I/p" --detect
+if grep -q "backend : api" "$I/out" && grep -q "frontend : web" "$I/out" && [ ! -d "$I/p/.claude" ]; then
+  pass=$((pass+1)); echo "  ✓ --detect trouve api et web sans rien écrire"; else fail=$((fail+1)); echo "  ✗ --detect"; sed 's/^/      /' "$I/out"; fi
+ichk 0 "installation avec détection automatique" bash "$kit/tools/install.sh" "$I/p" --architecture couche --mode plugin --integrations postgresql,redis
+if [ "$(jq -r .backend "$I/p/.claude/factory.json")/$(jq -r .frontend "$I/p/.claude/factory.json")" = "api/web" ]; then
+  pass=$((pass+1)); echo "  ✓ factory.json : backend api, frontend web"; else fail=$((fail+1)); echo "  ✗ factory.json"; cat "$I/p/.claude/factory.json"; fi
+if [ "$(jq -c .integrations "$I/p/.claude/stack.json")" = '["postgresql","redis"]' ]; then
+  pass=$((pass+1)); echo "  ✓ stack.json : intégrations choisies"; else fail=$((fail+1)); echo "  ✗ stack.json"; cat "$I/p/.claude/stack.json"; fi
+if grep -q '(depuis `api/`)' "$I/p/CLAUDE.md"; then pass=$((pass+1)); echo "  ✓ CLAUDE.md : dossier backend reporté"; else fail=$((fail+1)); echo "  ✗ CLAUDE.md sans api/"; fi
+if [ "$(jq -r '.enabledPlugins | keys[0]' "$I/p/.claude/settings.json")" = "top-factory@top" ]; then
+  pass=$((pass+1)); echo "  ✓ plugin top-factory@top activé"; else fail=$((fail+1)); echo "  ✗ enabledPlugins"; fi
+ichk 1 "mise à jour qui change le backend → refusée" bash "$kit/tools/install.sh" "$I/p" --backend web --mode plugin
+ichk 0 "mise à jour sans option" bash "$kit/tools/install.sh" "$I/p" --mode plugin
+newp; pom .
+ichk 0 "backend à la racine détecté" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --mode plugin
+if [ "$(jq -r .backend "$I/p/.claude/factory.json")" = "." ]; then pass=$((pass+1)); echo "  ✓ backend « . »"; else fail=$((fail+1)); echo "  ✗ backend à la racine"; fi
+newp; pom . ; pom module-a
+ichk 0 "multi-modules : le parent seul est retenu" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --mode plugin
+newp; pom service-a; pom service-b
+ichk 1 "deux backends sans --backend → refusé" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --mode plugin
+if [ ! -e "$I/p/.claude" ]; then pass=$((pass+1)); echo "  ✓ refus avant toute écriture"; else fail=$((fail+1)); echo "  ✗ .claude/ écrit malgré le refus"; fi
+ichk 0 "deux backends avec --backend" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --mode plugin --backend service-b
+newp; pom api
+ichk 1 "--backend hors du projet → refusé" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --backend ../x
+ichk 1 "intégration inconnue → refusée" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal --integrations postgresql,oracle
+newp; pom api
+ichk 0 "mode copie" bash "$kit/tools/install.sh" "$I/p" --architecture hexagonal
+if [ ! -e "$I/p/.claude/commands/init.md" ] && [ -f "$I/p/.claude/commands/feature.md" ]; then
+  pass=$((pass+1)); echo "  ✓ mode copie : pas de commande init (conflit avec /init de Claude Code)"; else fail=$((fail+1)); echo "  ✗ mode copie : init.md copié"; fi
+rm -rf "$I"
 
 echo "== sans jq"
 case "$(uname -s)" in

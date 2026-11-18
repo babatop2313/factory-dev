@@ -1,5 +1,44 @@
 # Changelog
 
+## v4.1.0 — Top Factory : nouveau nom, commande init, dossiers configurables
+**À faire dans un projet existant** (dans une branche dédiée, par exemple `chore/top-factory-v4.1.0`) :
+1. Dans Claude Code, remplacer l'ancien plugin : `/plugin uninstall factory@factory-dev`, `/plugin marketplace remove factory-dev`,
+   puis `/plugin marketplace add babatop2313/top-factory` et `/plugin install top-factory@top`. Relancer Claude.
+2. `/top-factory:init` (mise à jour : aucune question sur l'architecture) : réécrit `.claude/settings.json`
+   pour activer `top-factory@top` à la place de `factory@factory-dev`.
+3. Rien à faire pour les dossiers si le backend s'appelle `backend/` et le frontend `frontend/` (valeurs par défaut).
+   Sinon : `bash <kit>/tools/install.sh . --mode plugin --backend <dossier> [--frontend <dossier>]` ajoute les champs.
+
+### Nouveau nom
+- Plugin **`top-factory`**, marketplace **`top`**, dépôt `babatop2313/top-factory` (GitHub redirige l'ancienne adresse).
+- Commandes : `/top-factory:feature`… ; annonces des hooks : `TOP FACTORY`.
+
+### `/top-factory:init`
+- Initialise un projet **depuis Claude** : détection, questions (architecture, branche, intégrations, dossiers),
+  récapitulatif et accord, puis appel de `install.sh`. Toute l'écriture reste dans le script (réutilisable par d'autres outils).
+- Sur un projet initialisé : mise à jour, sans question sur l'architecture.
+- Mode plugin seulement : en mode copie, la commande s'appellerait `/init`, comme la commande intégrée de Claude Code.
+
+### Dossiers backend et frontend configurables
+- Nouveaux champs `backend` et `frontend` dans `.claude/factory.json` (défaut `backend`, `frontend` ; `.` = racine).
+- `install.sh` les détecte (`pom.xml` Spring Boot, `angular.json`, profondeur 2, parent d'un multi-modules) ;
+  options `--backend`, `--frontend`, `--detect`, `--integrations` ; refuse un chemin absolu ou avec `..`, et refuse
+  de changer un dossier déjà déclaré. Les vérifications ont lieu avant toute écriture.
+- `session-start` annonce `<backend>` et `<frontend>` et signale un backend introuvable ou invalide ; agents, commandes
+  et règles utilisent `<backend>`/`<frontend>` ; les hooks lisent les valeurs via `lib.sh`.
+- `post-edit-check` ne se désactive plus en silence : un backend introuvable est signalé.
+- `check-references.sh` refuse `backend/` ou `frontend/` écrits en dur dans le kit.
+- Limite : un seul backend par projet (plusieurs backends : évolution suivante).
+
+### Projets sans factory
+- Le plugin est activé pour tous les projets : sans `factory.json`, `session-start` affiche un message court
+  (proposer `/top-factory:init`, sinon ignorer) au lieu d'imposer les règles ; la compilation automatique et le rappel
+  `clean` ne s'appliquent pas. Les protections (`guard-bash`, `guard-files`, `guard-mcp-sql`) restent actives partout.
+
+### Tests
+- `test-hooks.sh` : 157 scénarios en mode copie, 160 en mode plugin (dossiers, backend à la racine, multi-modules,
+  plusieurs backends, refus avant écriture, projet non initialisé, mode copie sans `init`).
+
 ## v4.0.0 — La factory devient un plugin Claude Code
 **À faire dans un projet existant** (dans une branche dédiée) :
 - **Passer au plugin (recommandé)** : dans Claude Code, `/plugin marketplace add babatop2313/factory-dev` puis

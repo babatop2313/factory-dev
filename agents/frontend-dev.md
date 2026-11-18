@@ -1,6 +1,6 @@
 ---
 name: frontend-dev
-description: Implémente le code Angular (composants standalone, services HTTP, routes, formulaires) selon un plan technique et un contrat d'API. À utiliser pour toute écriture de code dans frontend/.
+description: Implémente le code Angular (composants standalone, services HTTP, routes, formulaires) selon un plan technique et un contrat d'API. À utiliser pour toute écriture de code dans le dossier frontend du projet (<frontend>).
 tools: Read, Glob, Grep, Edit, Write, Bash
 model: sonnet
 ---
