@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # PostToolUse (Edit|Write) : retour technique immédiat après chaque modification.
 #  - .java : compilation Maven du module backend (./mvnw, sinon mvn)
-#  - .ts/.html/.scss : Prettier sur le fichier modifié
-# La vérification d'architecture est faite séparément par guard-architecture.sh.
+#  - .ts/.html/.scss du frontend : Prettier sur le fichier ; pour un .ts, vérification des types (tsc --noEmit)
+# Les règles de dépendance sont vérifiées séparément par guard-architecture.sh (Java) et guard-frontend.sh (Angular).
 #
 # Retours à Claude :
 #  - erreur de compilation         → exit 2 (bloquant : Claude doit corriger)
@@ -67,9 +67,32 @@ case "$file" in
     exit 0 ;;
   *.ts|*.html|*.scss)
     front=$(frontend_dir) || exit 0
+    [[ "$file" == "$front"/* ]] || exit 0
     if [ -x "$front/node_modules/.bin/prettier" ]; then
       "$front/node_modules/.bin/prettier" --write "$file" >/dev/null 2>&1 || true
-    fi ;;
+    fi
+    # Vérification des types après chaque écriture d'un .ts (équivalent de la compilation Java).
+    # Les templates (.html) sont vérifiés par « ng build », lancé par l'agent avant de rendre la main.
+    case "$file" in *.ts) ;; *) exit 0 ;; esac
+    frel=$(frontend_rel)
+    tsc_js="$front/node_modules/typescript/bin/tsc"
+    if ! command -v node >/dev/null 2>&1 || [ ! -f "$tsc_js" ]; then
+      warn_once "TOP FACTORY : node ou les dépendances du frontend (« $frel/node_modules ») sont absents : les types TypeScript ne sont PAS vérifiés après chaque modification. Lance npm install dans $frel, puis npx ng build avant de déclarer la tâche terminée."
+      exit 0
+    fi
+    case "$file" in *.spec.ts) cfg="tsconfig.spec.json" ;; *) cfg="tsconfig.app.json" ;; esac
+    [ -f "$front/$cfg" ] || cfg="tsconfig.json"
+    [ -f "$front/$cfg" ] || exit 0
+    out=$(cd "$front" && node "node_modules/typescript/bin/tsc" --noEmit -p "$cfg" 2>&1)
+    rc=$?
+    [ $rc -eq 0 ] && exit 0
+    if printf '%s' "$out" | grep -qE 'error TS[0-9]+'; then
+      echo "Erreurs TypeScript après la modification de ${file#"$root"/} (tsc --noEmit -p $cfg) :" >&2
+      printf '%s\n' "$out" | grep -E 'error TS[0-9]+' | head -20 >&2
+      exit 2
+    fi
+    warn_once "TOP FACTORY : la vérification TypeScript n'a pas pu être lancée dans « $frel » — ce n'est pas une erreur dans le code. Premier message : $(printf '%s' "$out" | head -1 | cut -c1-300). Lance npx ng build pour vérifier."
+    exit 0 ;;
 esac
 
 exit 0

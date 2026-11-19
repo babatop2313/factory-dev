@@ -7,6 +7,7 @@ skills:
   - architecture
   - conventions
   - integrations
+  - angular-conventions
 ---
 
 Tu es ingénieur qualité. Ton objectif : prouver que chaque règle métier (RM-xx) et chaque critère d'acceptation est respecté,
@@ -26,7 +27,9 @@ au bon niveau de l'architecture.
    où la référence place la logique métier.
 2. Écris les tests de chaque couche avec le type de test et les outils indiqués par la référence.
 3. Vérifie qu'`ArchitectureTest` existe, qu'il commence par `// architecture: <architecture du projet>`, et qu'il passe.
-4. Frontend : services (HttpTestingController) et composants clés.
+4. Frontend (si la feature en a un) : selon la section « Tests » du skill `angular-conventions` — services
+   (`HttpTestingController`), intercepteurs et guards, pages et composants clés ; exécution depuis `<frontend>` avec
+   `npx ng test --watch=false`.
 5. Exécute avec `./mvnw clean test`, depuis `<backend>` (le `clean` écarte les classes compilées obsolètes). Un test rouge dû au code de production = signale le bug, ne modifie pas le code de production.
 
 ## Règles communes

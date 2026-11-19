@@ -59,11 +59,13 @@ elif [ ! -f "$(backend_dir)/pom.xml" ]; then
   echo "⚠ Aucun pom.xml dans « $brel » : le backend est introuvable. Signale-le à l'humain avant toute tâche backend."
 fi
 if [ -z "$frel" ]; then
-  echo "  (aucun frontend déclaré : n'écris pas de code Angular ; pour en ajouter un, l'humain lance /top-factory:init)"
+  echo "  (aucun frontend déclaré : n'écris pas de code Angular ; pour en créer un : /add-frontend)"
 elif ! safe_rel "$frel"; then
   echo "⛔ Le dossier frontend « $frel » est invalide (chemin absolu ou « .. ») : signale-le à l'humain."
 elif [ ! -d "$(frontend_dir)" ]; then
-  echo "  (pas de frontend dans « $frel » pour l'instant)"
+  echo "  (pas de frontend dans « $frel » pour l'instant : il se crée par /add-frontend)"
+else
+  echo "Avant toute tâche frontend, charge le skill « angular-conventions » (socle) et les options front-ui/front-forms du skill « conventions »."
 fi
 echo "Quand tu délègues à un agent, donne-lui <kit>, <backend>, <frontend> et la référence active : il ne reçoit pas ce message."
 echo "Branche d'intégration : $base (les branches feature/* partent de $base à jour)."

@@ -21,7 +21,7 @@
 > ne pas les répéter ici. Indiquer seulement les versions et ce qui sort de la factory.
 - Backend : Java 21, Spring Boot <version>, Spring Security (JWT), ArchUnit
 - Tests : JUnit 5, AssertJ, Mockito, Testcontainers
-- Frontend : <Angular x / aucun pour l'instant>
+- Frontend : <Angular x, PrimeNG + Bootstrap (grille) / aucun pour l'instant (créé par /add-frontend)>
 
 ## Structure du dépôt
 ```
@@ -29,6 +29,7 @@ backend/                                   ← code Spring Boot, organisé selon
   src/main/java/<package racine>/
   src/main/resources/db/migration/           migrations Flyway V<n>__<description>.sql
   src/test/java/<package racine>/ArchitectureTest.java
+frontend/                                  ← application Angular, si le projet en a une (core/, shared/, features/)
 docs/specs/                                ← une spec et un plan par fonctionnalité
 ```
 

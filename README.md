@@ -64,15 +64,16 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 
 | Élément | Rôle |
 |---|---|
-| `.claude-plugin/plugin.json` | Manifeste du plugin `factory` (nom, **version**) |
+| `.claude-plugin/plugin.json` | Manifeste du plugin `top-factory` (nom, **version**) |
 | `.claude-plugin/marketplace.json` | Marketplace `top` : ce dépôt distribue le plugin |
 | `agents/` | 6 sous-agents génériques |
-| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/add-integration`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
+| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
 | `skills/architecture/` | Aiguilleur + `references/couche`, `references/hexagonal`, `references/_template` |
-| `skills/conventions/` | Socle non négociable, profil `top`, options (mapping, lombok, errors, ids) |
+| `skills/conventions/` | Socle non négociable, profil `top`, options (mapping, lombok, errors, ids ; front-ui, front-forms) |
 | `skills/integrations/` | Une référence par technologie (postgresql, redis, mail, stockage-objet, rabbitmq, kafka) + vocabulaire des rôles |
-| `skills/` (autres) | `rest-api-design`, `angular-conventions` |
-| `hooks/hooks.json`, `hooks/scripts/` | Déclaration des hooks et scripts : `session-start`, `guard-architecture`, `guard-files`, `guard-bash`, `guard-mcp-sql`, `post-edit-check`, `post-bash-check` |
+| `skills/angular-conventions/` | Socle frontend (structure, dépendances, authentification, erreurs, tests) + `rules.conf` |
+| `skills/` (autres) | `rest-api-design` |
+| `hooks/hooks.json`, `hooks/scripts/` | Déclaration des hooks et scripts : `session-start`, `guard-architecture`, `guard-frontend`, `guard-files`, `guard-bash`, `guard-mcp-sql`, `post-edit-check`, `post-bash-check` |
 | `rules/factory.md` | Règles communes de la factory |
 | `templates/` | Fichiers créés dans chaque projet : `factory.json`, `stack.json`, `settings.json` (permissions) |
 | `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet |
@@ -193,6 +194,18 @@ L'architecture ne change jamais ; la stack, elle, évolue. Elle est décrite dan
 | stockage-objet (S3 / MinIO) | `sortant-fichiers` | non testée |
 | rabbitmq | `entrant-messagerie`, `sortant-messagerie` | non testée |
 | kafka | `entrant-messagerie`, `sortant-messagerie` | non testée |
+
+## Frontend Angular
+Un projet démarre souvent sans frontend (`"frontend": null` dans `factory.json`). **`/top-factory:add-frontend`** le crée :
+- vous choisissez le **dossier**, le **nom** de l'application et la **version d'Angular** (`latest` ou une version majeure) ;
+- la commande installe la bibliothèque d'interface de l'option `front-ui` (profil `top` : **PrimeNG**, avec la grille et
+  les utilitaires de **Bootstrap**), `angular-eslint`, le proxy de développement (`/api` → `localhost:8080`) et la
+  structure `core/` · `shared/` · `features/`, puis déclare le dossier dans `factory.json` (par le script) ;
+- l'authentification et les écrans métier viennent ensuite par `/top-factory:feature`, à partir du contrat d'API.
+
+Garde-fous : après chaque `.ts`, **vérification des types** (`tsc --noEmit`) et **règles de dépendance**
+(`guard-frontend` : aucune feature n'en importe une autre, `HttpClient` seulement dans les services, jeton jamais dans
+`localStorage`, aucune URL d'API absolue). Les agents lancent `ng build`, le lint et les tests avant de rendre la main.
 
 ## Serveurs MCP (optionnel)
 - **Utiliser des serveurs** (GitHub, PostgreSQL en lecture seule) : `extras/mcp/README.md`. Les garde-fous sont déjà

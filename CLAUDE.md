@@ -13,6 +13,7 @@
 | `agents/`, `commands/` | Sous-agents et commandes du kit (`commands/init.md` : mode plugin seulement, non copiée en mode copie) |
 | `skills/architecture/references/` | Une référence par architecture (`couche`, `hexagonal`) + `_template` |
 | `skills/conventions/` | Socle, profils (`top`), options (mapping, lombok, errors, ids) |
+| `skills/angular-conventions/` | Socle frontend et `references/rules.conf` (règles du hook `guard-frontend`) ; options `front-*` dans `skills/conventions/` |
 | `skills/integrations/` | Vocabulaire des rôles (`roles.conf`) et une référence par technologie + `_template` |
 | `hooks/hooks.json`, `hooks/scripts/` | Hooks du plugin (`${CLAUDE_PLUGIN_ROOT}`) ; `install.sh` les adapte au mode copie |
 | `rules/factory.md` | Règles communes (copiées dans `.claude/rules/` ou injectées par `session-start`) |

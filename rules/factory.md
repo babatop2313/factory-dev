@@ -45,7 +45,8 @@
   d'autorisation inutiles à l'humain.
 - Le shell sert à compiler, tester, lire l'historique Git et créer des branches ou des commits.
 - Si un hook bloque une action, ne pas chercher à le contourner : corriger, ou signaler le blocage à l'humain.
-- **Commandes portables** (le kit tourne sous Windows, macOS et Linux) : lancer Maven depuis `<backend>` avec `./mvnw` ;
+- **Commandes portables** (le kit tourne sous Windows, macOS et Linux) : lancer Maven depuis `<backend>` avec `./mvnw`,
+  et les commandes Angular depuis `<frontend>` avec `npx ng …` / `npm run …` ;
   ne pas supposer un shell précis (pas de `&&` dans PowerShell 5, pas de syntaxe propre à bash 4 dans les scripts).
 - **Données de développement** (jeu d'essai pour la base locale) : dans `docs/dev/`, **jamais dans `db/migration/`**,
   sinon Flyway les appliquerait en production. C'est l'humain qui exécute ces scripts.
@@ -87,6 +88,7 @@
 | `/init-architecture <module>` | Une fois au démarrage : ArchUnit, squelette du premier module |
 | `/update-architecture-test` | Après une mise à jour du kit : recopie `ArchitectureTest` depuis la référence active |
 | `/feature <besoin>` | Point de départ vérifié → spec → plan → code → tests → revue |
+| `/add-frontend [dossier]` | Une fois, si besoin : crée le frontend Angular (nom, version, bibliothèque `front-ui`, lint, proxy) |
 | `/add-integration <techno>` | Brancher une technologie (dépendances, configuration, Testcontainers) et la déclarer dans `stack.json` |
 | `/add-mcp-server` | Une fois, si besoin : infrastructure MCP du backend (Spring AI, profil `mcp-local` sécurisé) |
 | `/fix-bug <bug>` | Test qui reproduit → correction → revue |

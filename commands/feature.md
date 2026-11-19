@@ -35,6 +35,8 @@ début de la session) et le chemin de la référence d'architecture active : un 
    - agent `backend-dev` avec `docs/specs/<slug>-plan.md` (partie backend), dans l'ordre d'implémentation de la référence ;
      il implémente et compile, **il n'écrit pas les tests** ;
    - puis agent `frontend-dev` avec le plan et le contrat d'API (partie frontend), si la feature en a une.
+     Si la feature a une interface mais que `<frontend>` vaut « aucun », arrête-toi à l'étape du plan et propose
+     `/add-frontend` avant de continuer.
 5. **Tests** → agent `test-writer` avec la spec, le plan et la liste des fichiers produits.
    Il écrit **tous** les tests, couche par couche, selon la section « Tests par couche » de la référence, et les exécute.
    S'il détecte un bug dans le code de production, renvoie-le à `backend-dev`, puis relance `test-writer`.

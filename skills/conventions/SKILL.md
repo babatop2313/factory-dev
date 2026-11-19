@@ -1,6 +1,6 @@
 ---
 name: conventions
-description: "Conventions de code Spring Boot du projet : socle non négociable, profil et options (mapping, Lombok, format des erreurs, ids) choisis dans .claude/stack.json. À charger avec le skill architecture avant TOUTE tâche backend."
+description: "Conventions de code du projet : socle Spring Boot non négociable, profil et options (mapping, Lombok, format des erreurs, ids ; front-ui et front-forms pour Angular) choisis dans .claude/stack.json. À charger avec le skill architecture avant TOUTE tâche backend, et avec angular-conventions avant toute tâche frontend."
 ---
 
 # Conventions du projet
@@ -14,8 +14,9 @@ Ce skill est un **aiguilleur**, comme `architecture` : il te dit quelles convent
 1. Lis **en entier** `<kit>/skills/conventions/references/socle/REFERENCE.md` : il s'applique toujours.
 2. Lis `.claude/stack.json` (outil Read) : champs `profile` et `conventions`.
 3. Lis `references/profiles/<profile>/PROFILE.md` : il donne la valeur **par défaut** de chaque option et des préférences de travail.
-4. Pour chaque option (`mapping`, `lombok`, `errors`, `ids`), la valeur retenue est celle de `stack.json` si elle y figure,
-   sinon celle du profil. Dans `references/options/<option>.md`, lis **uniquement** la section `## Valeur : <valeur retenue>`.
+4. Pour chaque option du tableau du profil, la valeur retenue est celle de `stack.json` si elle y figure, sinon celle
+   du profil. Options backend : `mapping`, `lombok`, `errors`, `ids` ; options frontend (préfixe `front-`) :
+   `front-ui`, `front-forms` — ne les lis que pour une tâche frontend. Dans `references/options/<option>.md`, lis **uniquement** la section `## Valeur : <valeur retenue>`.
 5. Si `stack.json` est absent, si le profil n'existe pas, ou si une valeur ne correspond à aucune section :
    arrête-toi et signale-le. N'invente pas de convention.
 
