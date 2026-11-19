@@ -1,5 +1,16 @@
 # Changelog
 
+## v4.2.1 — Retours du premier essai de `/add-frontend`
+Rien d'obligatoire dans un projet existant : mettre à jour le plugin. Facultatif : ranger une page placée hors de `pages/`
+(ex. `features/home/home.ts` → `features/home/pages/home.ts`).
+
+- `guard-frontend` : `HttpClient` refusé dans **tout composant, directive ou pipe** (décorateur trouvé dans le fichier),
+  quel que soit son dossier ; avant, la règle ne visait que `pages/`, `ui/` et `shared/` (une page d'accueil rangée
+  dans `features/home/` passait).
+- `/add-frontend` : page d'accueil rangée dans `features/home/pages/` ; seuil d'avertissement du bundle initial relevé
+  à 800 kB avec PrimeNG (le thème dépasse les 500 kB par défaut).
+- `rules.conf` du frontend : en-tête corrigé (lu par `guard-frontend.sh`).
+
 ## v4.2.0 — Le frontend Angular
 **À faire dans un projet existant** : rien d'obligatoire. Pour créer le frontend d'un projet qui n'en a pas :
 `/top-factory:add-frontend`. Les nouvelles permissions (`npx ng build/test/lint`, `npm view`) arrivent avec
