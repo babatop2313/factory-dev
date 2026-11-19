@@ -301,6 +301,51 @@ else
   else pass=$((pass+1)); echo "  ✓ mode copie : règles non injectées (chargées depuis .claude/rules/)"; fi
 fi
 
+echo "== guard-frontend : règles du frontend Angular"
+printf '%s\r\n' '{ "architecture": "hexagonal", "frontend": "web" }' > "$T/.claude/factory.json"
+FA="$T/web/src/app"
+mkt() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$2" > "$1"; }
+mkt "$FA/features/catalog/pages/book-list.ts" "import { HttpClient } from '@angular/common/http';"
+chk 2 "HttpClient dans une page" guard-frontend.sh "$(jp "$FA/features/catalog/pages/book-list.ts")"
+mkt "$FA/features/catalog/data/book.service.ts" "import { HttpClient } from '@angular/common/http';"
+chk 0 "HttpClient dans le service de la feature" guard-frontend.sh "$(jp "$FA/features/catalog/data/book.service.ts")"
+mkt "$FA/features/catalog/pages/book-form.ts" "import { Loan } from '../../loan/data/loan.model';"
+chk 2 "feature catalog → feature loan (import relatif)" guard-frontend.sh "$(jp "$FA/features/catalog/pages/book-form.ts")"
+mkt "$FA/features/catalog/pages/book-edit.ts" "import { Book } from '../data/book.model';
+import { Button } from '../../../shared/ui/button';"
+chk 0 "imports dans la même feature et vers shared/" guard-frontend.sh "$(jp "$FA/features/catalog/pages/book-edit.ts")"
+mkt "$FA/features/catalog/ui/book-card.ts" "import { BookService } from '../data/book.service';"
+chk 2 "service de données dans un composant ui/" guard-frontend.sh "$(jp "$FA/features/catalog/ui/book-card.ts")"
+mkt "$FA/shared/ui/badge.ts" "import { Book } from '../../features/catalog/data/book.model';"
+chk 2 "shared/ dépend d'une feature" guard-frontend.sh "$(jp "$FA/shared/ui/badge.ts")"
+mkt "$FA/core/auth/auth.service.ts" "sessionStorage.setItem('token', t);
+localStorage.setItem('token', t);"
+chk 2 "jeton dans localStorage" guard-frontend.sh "$(jp "$FA/core/auth/auth.service.ts")"
+mkt "$FA/core/http/api.ts" "const url = 'http://localhost:8080/api/v1/books';"
+chk 2 "URL d'API absolue" guard-frontend.sh "$(jp "$FA/core/http/api.ts")"
+mkt "$FA/features/catalog/pages/book-list.spec.ts" "import { HttpClient } from '@angular/common/http';"
+chk 0 "fichier de test ignoré" guard-frontend.sh "$(jp "$FA/features/catalog/pages/book-list.spec.ts")"
+printf '%s\r\n' '{ "architecture": "hexagonal", "frontend": null }' > "$T/.claude/factory.json"
+chk 0 "frontend null → aucune vérification" guard-frontend.sh "$(jp "$FA/features/catalog/pages/book-list.ts")"
+
+echo "== post-edit-check : types TypeScript"
+printf '%s\r\n' '{ "architecture": "hexagonal", "frontend": "web" }' > "$T/.claude/factory.json"
+rm -f "$TMPDIR"/claude-factory-warn-*
+chk_out "PAS vérifiés" "sans node_modules → avertissement" post-edit-check.sh "$(jp "$FA/features/catalog/data/book.service.ts")"
+if command -v node >/dev/null 2>&1; then
+  mkdir -p "$T/web/node_modules/typescript/bin"
+  printf '{}' > "$T/web/tsconfig.app.json"
+  printf 'console.log("src/app/x.ts(3,7): error TS2322: Type string is not assignable to type number."); process.exit(2);\n' > "$T/web/node_modules/typescript/bin/tsc"
+  chk 2 "erreur TypeScript → bloquant" post-edit-check.sh "$(jp "$FA/features/catalog/data/book.service.ts")"
+  printf 'process.exit(0);\n' > "$T/web/node_modules/typescript/bin/tsc"
+  chk 0 "types corrects" post-edit-check.sh "$(jp "$FA/features/catalog/data/book.service.ts")"
+  chk 0 "fichier hors du frontend ignoré" post-edit-check.sh "$(jp "$T/docs/notes.ts")"
+else
+  echo "  (node absent : tests de la vérification TypeScript ignorés)"
+fi
+rm -rf "$T/web"
+setarch hexagonal
+
 echo "== dossiers backend et frontend (factory.json)"
 setfj() { printf '%s\r\n' "$1" > "$T/.claude/factory.json"; }
 rm -f "$TMPDIR"/claude-factory-warn-*

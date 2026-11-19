@@ -1,5 +1,40 @@
 # Changelog
 
+## v4.2.0 — Le frontend Angular
+**À faire dans un projet existant** : rien d'obligatoire. Pour créer le frontend d'un projet qui n'en a pas :
+`/top-factory:add-frontend`. Les nouvelles permissions (`npx ng build/test/lint`, `npm view`) arrivent avec
+`/top-factory:init` (mise à jour), qui réécrit `.claude/settings.json`.
+
+### `/add-frontend`
+- Crée l'application Angular : **dossier, nom et version d'Angular au choix** (`latest` ou une version majeure, avec
+  contrôle de la version de Node), bibliothèque d'interface de `front-ui`, `angular-eslint`, proxy de développement,
+  structure `core/` (intercepteur d'erreurs, en-tête) · `shared/` · `features/` ; build, lint et tests vérifiés ;
+  déclaration du dossier dans `factory.json` par `install.sh --frontend`.
+- L'authentification et les écrans métier passent par `/feature` (validation complète des agents).
+
+### Conventions frontend
+- `angular-conventions` réécrit (socle) : structure par feature, règles de dépendance, composants (signals, `@if`/`@for`,
+  `inject()`, OnPush), services HTTP (URL relatives), **authentification JWT** (signal + `sessionStorage`, jamais
+  `localStorage` ; intercepteur limité à `/api` ; 401 → déconnexion ; message de connexion générique), erreurs
+  `ProblemDetail`, tests (Vitest ou Karma selon le projet), vérifications avant de rendre la main.
+- Nouvelles options : **`front-ui`** (`primeng-bootstrap` — PrimeNG + grille et utilitaires Bootstrap, `material`,
+  `aucune`) et **`front-forms`** (`reactive`, `signal`). Profil `top` : `primeng-bootstrap`, `reactive`.
+
+### Garde-fous
+- Nouveau hook **`guard-frontend`** : règles de `angular-conventions/references/rules.conf` (pas de `HttpClient` dans
+  `pages/`, `ui/`, `shared/` ; `ui/` sans service de données ; `shared/` et `core/` indépendants des features ; jeton
+  jamais dans `localStorage` ; aucune URL d'API absolue) et interdiction d'importer une autre feature (chemins résolus).
+- `post-edit-check` : **vérification des types** (`tsc --noEmit`) après chaque `.ts` du frontend, bloquante en cas d'erreur.
+- `check-references.sh` repère aussi `cd frontend` / `cd backend` écrits en dur ; vérifie `rules.conf` du frontend.
+
+### Agents
+- `frontend-dev` réécrit (`<frontend>`, options `front-*`, ordre d'implémentation, `ng build` + lint) ;
+  `architect`, `test-writer` et `reviewer` chargent `angular-conventions` et couvrent le frontend ;
+  `/feature` s'arrête si une feature a une interface sans frontend.
+
+### Tests
+- `test-hooks.sh` : 183 scénarios en mode copie, 186 en mode plugin.
+
 ## v4.1.2 — Le dossier `.claude/` ne se supprime plus en bloc
 Rien à faire dans un projet existant : mettre à jour le plugin.
 
