@@ -16,6 +16,7 @@
 | `skills/angular-conventions/` | Socle frontend et `references/rules.conf` (règles du hook `guard-frontend`) ; options `front-*` dans `skills/conventions/` |
 | `skills/integrations/` | Vocabulaire des rôles (`roles.conf`) et une référence par technologie + `_template` |
 | `hooks/hooks.json`, `hooks/scripts/` | Hooks du plugin (`${CLAUDE_PLUGIN_ROOT}`) ; `install.sh` les adapte au mode copie |
+| `hooks/scripts/events.sh`, `dashboard.sh` | Journal d'activité et notifications (`~/.top-factory/`), page du tableau de bord ; jamais de sortie standard, jamais bloquants |
 | `rules/factory.md` | Règles communes (copiées dans `.claude/rules/` ou injectées par `session-start`) |
 | `templates/` | Fichiers créés dans les projets : `factory.json`, `stack.json`, `settings.json` (permissions seulement) |
 | `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet |
