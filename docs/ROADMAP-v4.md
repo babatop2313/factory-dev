@@ -82,12 +82,15 @@ Nouveau nom (`top-factory`, marketplace `top`), commande `/top-factory:init`, do
 `/add-frontend`, conventions frontend (options `front-ui`, `front-forms`), hooks `guard-frontend` et vérification des types.
 Validation sur Bibliothèque : écran de connexion et catalogue.
 
-## v4.3 — Plusieurs backends dans un même dépôt
+## v4.3 — Tableau de bord et notifications ✅ (livrée)
+Journal d'activité par les hooks, page locale `~/.top-factory/dashboard.html`, notifications système et ntfy.
+
+## v4.4 — Plusieurs backends dans un même dépôt
 Aujourd'hui : un seul backend par projet. Besoin exprimé : plusieurs projets backend (microservices, multi-modules
 indépendants) pilotés par la même factory. À cadrer : une architecture par backend ou commune, ArchitectureTest par
 backend, `<backend>` désigné par tâche, hooks qui compilent le bon module.
 
-## v4.4 — Noyau neutre (préparer le multi-IA)
+## v4.5 — Noyau neutre (préparer le multi-IA)
 Appliquer l'architecture hexagonale à la factory elle-même : un **noyau neutre** et des **adaptateurs par outil**.
 ```
 core/          factory.json, stack.json, références (architecture, conventions, intégrations),
@@ -111,11 +114,11 @@ adapters/
 | Sous-agents | moyenne : notions très différentes |
 | Hooks | faible : remplacés par le hook Git et la CI pour ce qui est obligatoire |
 
-## v4.5 — `factory-mcp`, la factory comme serveur MCP
+## v4.6 — `factory-mcp`, la factory comme serveur MCP
 Serveur en **Java / Spring AI, transport stdio**, utilisable par tous les clients : `get_architecture`,
 `get_reference_section`, `check_architecture(fichier)` (applique les `rules.conf`), `list_integrations`, `list_specs`…
 Dans Claude Code, il ferait doublon avec les skills ; il prend tout son sens pour Copilot et Gemini.
 
-## v4.6 et v4.7 — Copilot, puis Gemini CLI
+## v4.7 et v4.8 — Copilot, puis Gemini CLI
 Un adaptateur par outil, généré depuis le noyau, **validé sur Bibliothèque** avec les mêmes scénarios que pour Claude.
 Objectif réaliste : les mêmes règles et les mêmes garde-fous partout, pas une expérience identique dans chaque outil.

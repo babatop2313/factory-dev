@@ -88,6 +88,7 @@
 | `/init-architecture <module>` | Une fois au démarrage : ArchUnit, squelette du premier module |
 | `/update-architecture-test` | Après une mise à jour du kit : recopie `ArchitectureTest` depuis la référence active |
 | `/feature <besoin>` | Point de départ vérifié → spec → plan → code → tests → revue |
+| `/dashboard [prune\|notifications]` | Ouvre le tableau de bord de tous les projets ; réglages des notifications |
 | `/add-frontend [dossier]` | Une fois, si besoin : crée le frontend Angular (nom, version, bibliothèque `front-ui`, lint, proxy) |
 | `/add-integration <techno>` | Brancher une technologie (dépendances, configuration, Testcontainers) et la déclarer dans `stack.json` |
 | `/add-mcp-server` | Une fois, si besoin : infrastructure MCP du backend (Spring AI, profil `mcp-local` sécurisé) |

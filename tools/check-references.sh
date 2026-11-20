@@ -167,7 +167,7 @@ for c in $(jq -r '.. | .command? // empty' "$hj" | sed -nE 's#.*\$\{CLAUDE_PLUGI
   [ -f "$root/$c" ] || { echo "   ✗ hooks.json : script introuvable $c"; errors=$((errors+1)); }
 done
 jq -e 'has("hooks") | not' "$root/templates/settings.json" >/dev/null || { echo "   ✗ templates/settings.json ne doit pas contenir de hooks (ils sont dans hooks/hooks.json)"; errors=$((errors+1)); }
-for c in init add-frontend; do
+for c in init add-frontend dashboard; do
   [ -f "$root/commands/$c.md" ] || { echo "   ✗ commande commands/$c.md absente"; errors=$((errors+1)); }
 done
 # Règles du frontend : format « segment :: regex :: message », au moins une règle.

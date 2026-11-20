@@ -67,13 +67,13 @@ Pour en ajouter une (clean, monolithe modulaire…) : voir « Ajouter une archit
 | `.claude-plugin/plugin.json` | Manifeste du plugin `top-factory` (nom, **version**) |
 | `.claude-plugin/marketplace.json` | Marketplace `top` : ce dépôt distribue le plugin |
 | `agents/` | 6 sous-agents génériques |
-| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
+| `commands/` | `/init` (mode plugin), `/init-architecture`, `/update-architecture-test`, `/feature`, `/dashboard`, `/add-frontend`, `/add-integration`, `/add-mcp-server`, `/fix-bug`, `/review-mr` |
 | `skills/architecture/` | Aiguilleur + `references/couche`, `references/hexagonal`, `references/_template` |
 | `skills/conventions/` | Socle non négociable, profil `top`, options (mapping, lombok, errors, ids ; front-ui, front-forms) |
 | `skills/integrations/` | Une référence par technologie (postgresql, redis, mail, stockage-objet, rabbitmq, kafka) + vocabulaire des rôles |
 | `skills/angular-conventions/` | Socle frontend (structure, dépendances, authentification, erreurs, tests) + `rules.conf` |
 | `skills/` (autres) | `rest-api-design` |
-| `hooks/hooks.json`, `hooks/scripts/` | Déclaration des hooks et scripts : `session-start`, `guard-architecture`, `guard-frontend`, `guard-files`, `guard-bash`, `guard-mcp-sql`, `post-edit-check`, `post-bash-check` |
+| `hooks/hooks.json`, `hooks/scripts/` | Déclaration des hooks et scripts : `session-start`, `guard-architecture`, `guard-frontend`, `guard-files`, `events`, `dashboard`, `guard-bash`, `guard-mcp-sql`, `post-edit-check`, `post-bash-check` |
 | `rules/factory.md` | Règles communes de la factory |
 | `templates/` | Fichiers créés dans chaque projet : `factory.json`, `stack.json`, `settings.json` (permissions) |
 | `CLAUDE.template.md` | Modèle du `CLAUDE.md` d'un projet |
@@ -194,6 +194,21 @@ L'architecture ne change jamais ; la stack, elle, évolue. Elle est décrite dan
 | stockage-objet (S3 / MinIO) | `sortant-fichiers` | non testée |
 | rabbitmq | `entrant-messagerie`, `sortant-messagerie` | non testée |
 | kafka | `entrant-messagerie`, `sortant-messagerie` | non testée |
+
+## Tableau de bord et notifications
+Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les hooks de Claude Code (`SessionStart`,
+`SubagentStart`/`SubagentStop`, `Stop`, `Notification`, commits et pushes) écrivent un journal dans
+`~/.top-factory/events/` et inscrivent le projet dans `~/.top-factory/projects.json`.
+
+- **`/top-factory:dashboard`** ouvre `~/.top-factory/dashboard.html` : une page locale, sans serveur, actualisée toutes
+  les 15 secondes, avec trois vues — **Vue d'ensemble** (ce qui attend une action de ta part, features en cours,
+  activité), **Projets** (pour chacun, le **process de la feature** étape par étape : spec, plan, code, tests, revue,
+  commit, PR, avec les validations attendues) et **Documentation** (principe, workflow, toutes les commandes et tous les
+  agents, lus dans le kit installé, garde-fous, dépannage).
+- **Notifications** à chaque validation requise, autorisation demandée ou fin de tâche : notification du système
+  (Windows, macOS, Linux) et, en option, sur le téléphone avec **ntfy** (`/top-factory:dashboard notifications`).
+  Elles ne contiennent que le projet, l'étape et la branche, jamais de code ni de texte de Claude.
+- Réglages : `~/.top-factory/config.json` (créé au premier événement) ; dossier personnalisable avec `TOP_FACTORY_HOME`.
 
 ## Frontend Angular
 Un projet démarre souvent sans frontend (`"frontend": null` dans `factory.json`). **`/top-factory:add-frontend`** le crée :

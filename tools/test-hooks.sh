@@ -430,6 +430,57 @@ if [ ! -e "$I/p/.claude/commands/init.md" ] && [ -f "$I/p/.claude/commands/featu
   pass=$((pass+1)); echo "  ✓ mode copie : pas de commande init (conflit avec /init de Claude Code)"; else fail=$((fail+1)); echo "  ✗ mode copie : init.md copié"; fi
 rm -rf "$I"
 
+echo "== tableau de bord : journal, notifications, page"
+export TOP_FACTORY_HOME="$T/tfh" TOP_FACTORY_NOTIFY=dry TOP_FACTORY_DASHBOARD_SYNC=1
+ok() { if eval "$1"; then pass=$((pass+1)); echo "  ✓ $2"; else fail=$((fail+1)); echo "  ✗ $2"; fi; }
+evlast() { tail -n 1 "$TOP_FACTORY_HOME"/events/*.jsonl | jq -r "$1"; }
+out=$(printf '%s' '{"session_id":"s1","source":"startup"}' | bash "$H/events.sh" session_start)
+ok '[ -z "$out" ]' "session_start : rien sur la sortie standard (contexte de Claude)"
+ok '[ "$(evlast .kind)" = session_start ]' "session_start enregistrée"
+ok '[ "$(jq -r "[.[]][0].architecture" "$TOP_FACTORY_HOME/projects.json")" = hexagonal ]' "projet inscrit au registre (architecture)"
+printf '%s' '{"agent_type":"top-factory:architect"}' | bash "$H/events.sh" agent_start
+ok '[ "$(evlast .title)" = "Agent architect au travail" ] && [ "$(evlast .agent)" = architect ]' "agent_start : type d'agent sans préfixe du plugin"
+printf '%s' '{"agent_type":"architect","last_assistant_message":"## Plan\nLe plan est prêt."}' | bash "$H/events.sh" agent_end
+ok '[ "$(evlast .detail)" = "Plan" ]' "agent_end : première ligne du message, sans marques Markdown"
+jq -cn '{last_assistant_message: "Spec rédigée.\n\n⏸ J attends ta validation de la spec </script>"}' | bash "$H/events.sh" stop
+ok '[ "$(evlast .kind)" = validation ]' "arrêt ⏸ → validation requise"
+ok '[ "$(evlast .detail)" = "J attends ta validation de la spec </script>" ]' "validation : texte sans le symbole ⏸"
+ok 'grep -q "desktop|Top Factory · .*|Validation requise" "$TOP_FACTORY_HOME/notify.log"' "validation notifiée"
+ok '! grep -q "J attends" "$TOP_FACTORY_HOME/notify.log"' "la notification ne contient pas le texte de Claude"
+jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop
+ok '[ "$(evlast .kind)" = turn_end ]' "fin de tour sans ⏸ → à toi de jouer"
+printf '%s' '{"notification_type":"permission_prompt","message":"Claude needs your permission to use Bash"}' | bash "$H/events.sh" notification
+ok '[ "$(evlast .kind)" = permission ]' "demande d'autorisation"
+n=$(wc -l < "$TOP_FACTORY_HOME/notify.log" | tr -d ' ')
+printf '%s' '{"notification_type":"idle_prompt","message":"Claude is waiting for your input"}' | bash "$H/events.sh" notification
+ok '[ "$(evlast .kind)" = attention ] && [ "$(wc -l < "$TOP_FACTORY_HOME/notify.log" | tr -d " ")" = "$n" ]' "attente simple : enregistrée, non notifiée (réglage par défaut)"
+printf '%s' "$(jc 'ls -la')" | bash "$H/events.sh" bash
+ok '[ "$(evlast .kind)" = attention ]' "commande ordinaire : aucun événement"
+jq '.notifications.ntfy.topic = "sujet-test" | .notifications.desktop = false' "$TOP_FACTORY_HOME/config.json" > "$T/c" && mv "$T/c" "$TOP_FACTORY_HOME/config.json"
+: > "$TOP_FACTORY_HOME/notify.log"
+jq -cn '{last_assistant_message: "⏸ verdict"}' | bash "$H/events.sh" stop
+ok 'grep -q "^ntfy|https://ntfy.sh|" "$TOP_FACTORY_HOME/notify.log" && ! grep -q "^desktop" "$TOP_FACTORY_HOME/notify.log"' "ntfy configuré, bureau désactivé"
+ok '[ "$(sed -n "s/^ntfy|[^|]*|//p" "$TOP_FACTORY_HOME/notify.log" | jq -r .topic)" = sujet-test ]' "ntfy : message JSON avec le sujet"
+D="$TOP_FACTORY_HOME/dashboard.html"
+ok '[ -f "$D" ] && grep -q "<title>Top Factory</title>" "$D" && grep -q "Documentation" "$D"' "tableau de bord généré (vues et documentation)"
+ok '[ "$(sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d" | jq -r "[.docs.commands[].name] | index(\"feature\") != null")" = true ]' "documentation : commandes lues dans le kit"
+ok '[ "$(sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d" | jq -r ".docs.agents | length")" = 6 ]' "documentation : les 6 agents"
+ok '[ "$(evlast .agent // empty)" = "" ] || true' "événements : champ agent facultatif"
+ok '[ "$(sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d" | jq -r ".projects | length")" = 1 ]' "données du tableau de bord : JSON valide"
+ok '! sed -n "/id=\"data\"/,/^<\/script>/p" "$D" | sed "1d;\$d" | grep -q "</script>"' "texte des événements échappé (pas de </script> dans les données)"
+mv "$T/.claude/factory.json" "$T/fj2"; c=$(cat "$TOP_FACTORY_HOME"/events/*.jsonl | wc -l)
+printf '%s' '{"source":"startup"}' | bash "$H/events.sh" session_start
+ok '[ "$(cat "$TOP_FACTORY_HOME"/events/*.jsonl | wc -l)" = "$c" ]' "projet sans factory : rien d'enregistré"
+mv "$T/fj2" "$T/.claude/factory.json"
+G="$(mktemp -d)"; mkdir -p "$G/.claude"; printf '{"architecture":"couche"}' > "$G/.claude/factory.json"
+( cd "$G" && git init -q && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m "feat(catalog): premier commit" )
+CLAUDE_PROJECT_DIR="$G" bash "$H/events.sh" bash <<< "$(jc 'git commit -m "feat(catalog): premier commit"')"
+ok '[ "$(jq -r "[.[]] | length" "$TOP_FACTORY_HOME/projects.json")" = 2 ] && grep -q "feat(catalog): premier commit" "$TOP_FACTORY_HOME"/events/*.jsonl' "commit : second projet suivi, message du commit"
+rm -rf "$G"
+bash "$H/dashboard.sh" --prune > "$T/out"
+ok 'grep -q "Retiré" "$T/out" && [ "$(jq -r "[.[]] | length" "$TOP_FACTORY_HOME/projects.json")" = 1 ]' "--prune retire le projet disparu"
+unset TOP_FACTORY_HOME TOP_FACTORY_NOTIFY TOP_FACTORY_DASHBOARD_SYNC
+
 echo "== sans jq"
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*) echo "  (ignoré sous Windows : impossible de masquer jq sans masquer bash)" ;;
