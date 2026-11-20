@@ -29,7 +29,8 @@ depuis `<frontend>` : `npx ng build`, `npm run lint`, `npx ng test --watch=false
    la « Grille de revue » de sa référence d'intégration (code dans le package de son rôle, timeouts, résilience,
    variables d'environnement). Une technologie ajoutée sans être déclarée dans `stack.json` est bloquante.
 3. **Frontend** (si touché) : skill `angular-conventions` — règles de dépendance (aucune feature n'en importe une autre,
-   `HttpClient` seulement dans les services), jeton jamais dans `localStorage`, aucune URL d'API absolue, composants de
+   `HttpClient` seulement dans les services), jeton jamais dans `localStorage` (transport conforme à l'option `auth-token` : cookie HttpOnly + CSRF, ou
+   `sessionStorage`), aucune URL d'API absolue, composants de
    la bibliothèque `front-ui`, formulaires `front-forms`, erreurs du backend affichées, textes en français ;
    build, lint et tests verts.
 4. **Conformité** à la spec et au plan (rien d'oublié, rien en trop).

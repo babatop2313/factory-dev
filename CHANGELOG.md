@@ -1,5 +1,17 @@
 # Changelog
 
+## v4.2.2 — JWT en cookie HttpOnly par défaut
+**À faire dans un projet existant** : rien si l'authentification n'est pas encore écrite (le profil `top` choisit
+désormais `cookie-httponly`). Un projet qui garde le jeton dans `sessionStorage` déclare
+`"conventions": { "auth-token": "session-storage" }` dans `.claude/stack.json`.
+
+- Nouvelle option **`auth-token`** (backend et frontend) : `cookie-httponly` — cookie `HttpOnly; Secure;
+  SameSite=Strict; Path=/api`, CSRF (`XSRF-TOKEN` / `X-XSRF-TOKEN`, dispense pour les requêtes `Authorization: Bearer`),
+  `auth/me` et `auth/logout`, aucun jeton côté JavaScript — ou `session-storage`. Profil `top` : `cookie-httponly`.
+- `angular-conventions` (Authentification), socle backend et grille du `reviewer` renvoient à l'option.
+- `guard-frontend` : un seul message pour `HttpClient` dans une page (règle « composant ») ; `/add-frontend` désactive
+  les analytics du CLI.
+
 ## v4.2.1 — Retours du premier essai de `/add-frontend`
 Rien d'obligatoire dans un projet existant : mettre à jour le plugin. Facultatif : ranger une page placée hors de `pages/`
 (ex. `features/home/home.ts` → `features/home/pages/home.ts`).

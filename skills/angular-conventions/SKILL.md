@@ -69,18 +69,17 @@ export class BookService {
 - Pas de `subscribe` imbriqués ; dans un composant, `toSignal()` ou `takeUntilDestroyed()` — aucun abonnement non libéré.
 
 ## Authentification (JWT émis par le backend)
-- `core/auth/auth.service.ts` : `login(credentials)` appelle l'endpoint de connexion du backend ; le jeton est gardé
-  dans un `signal` et dans `sessionStorage` (survit au rechargement, disparaît à la fermeture de l'onglet) —
-  **jamais `localStorage`**, jamais dans une URL, jamais dans un log. `logout()` efface tout.
-- Rôles et expiration lus dans la charge utile du JWT **pour l'affichage seulement** (décodage base64url, sans
-  vérification de signature : la sécurité réelle est côté backend). Jeton expiré = déconnexion.
-- `core/auth/auth.interceptor.ts` (intercepteur fonctionnel, `withInterceptors`) : ajoute `Authorization: Bearer …`
-  **uniquement** aux requêtes relatives vers `/api` ; sur une réponse 401, déconnecte et redirige vers la connexion
-  (en conservant l'URL demandée en paramètre `returnUrl`, validée comme chemin interne).
+- **Le transport du jeton dépend de l'option `auth-token`** du skill `conventions` (profil `top` : `cookie-httponly`,
+  le jeton n'est jamais lisible par JavaScript). Lis la section de la valeur retenue : elle décrit le service, les
+  intercepteurs et ce que le backend doit fournir.
+- Dans tous les cas : **jamais `localStorage`**, jamais de jeton dans une URL ni dans un log ; l'état de connexion est
+  un `signal` du service `core/auth/auth.service.ts`.
 - `core/auth/auth.guard.ts` (`CanActivateFn`) : route protégée → connexion si non authentifié ; `roleGuard('LIBRARIAN')`
   pour les routes réservées. Les guards masquent l'interface, ils ne protègent rien : chaque endpoint reste protégé côté backend.
+- Sur un 401, déconnexion et redirection vers la connexion, en conservant l'URL demandée en paramètre `returnUrl`
+  (validée comme chemin interne : commence par `/`, pas par `//`).
 - Écran de connexion : message d'erreur **générique** (« Identifiant ou mot de passe incorrect »), jamais
-  « utilisateur inconnu » ; champ mot de passe masqué ; aucun identifiant pré-rempli dans le code.
+  « utilisateur inconnu » ; champ mot de passe masqué, avec bouton pour l'afficher ; aucun identifiant pré-rempli dans le code.
 
 ## Erreurs
 - `core/http/error.interceptor.ts` : traduit les erreurs HTTP en notifications (selon `front-ui`) ; lit le `ProblemDetail`
@@ -92,7 +91,8 @@ export class BookService {
 - Lanceur : celui du projet (`ng test` : Vitest pour les projets récents, Karma pour les plus anciens) ; exécution
   non interactive `npx ng test --watch=false` depuis `<frontend>`.
 - Services : `provideHttpClient()` + `provideHttpClientTesting()`, `HttpTestingController` (URL, méthode, corps).
-- Intercepteurs et guards : testés isolément (jeton ajouté seulement vers `/api`, 401 → déconnexion, redirection).
+- Intercepteurs et guards : testés isolément (selon `auth-token` : en-tête ajouté seulement vers `/api`, ou en-tête
+  CSRF ; 401 → déconnexion, redirection avec `returnUrl`).
 - Composants clés (pages) : rendu, interactions, affichage des erreurs ; composants `ui/` par leurs entrées et sorties.
 
 ## Vérifications avant de rendre la main
@@ -100,5 +100,6 @@ Depuis `<frontend>` : `npx ng build` (compile les templates), `npm run lint` si 
 Le hook vérifie aussi les types (TypeScript) après chaque écriture d'un `.ts`.
 
 ## Interdits
-`any` (préférer `unknown` + rétrécissement), URL d'API absolue dans le code, jeton dans `localStorage`, `HttpClient` hors
+`any` (préférer `unknown` + rétrécissement), URL d'API absolue dans le code, jeton dans `localStorage` (ni dans
+`sessionStorage` avec `auth-token` = `cookie-httponly`), `HttpClient` hors
 d'un service, import d'une feature par une autre, abonnement non libéré, `console.log` laissé dans le code.

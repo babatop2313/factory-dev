@@ -306,6 +306,9 @@ printf '%s\r\n' '{ "architecture": "hexagonal", "frontend": "web" }' > "$T/.clau
 FA="$T/web/src/app"
 mkt() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$2" > "$1"; }
 mkt "$FA/features/catalog/pages/book-list.ts" "import { HttpClient } from '@angular/common/http';"
+mkt "$FA/features/catalog/pages/book-list.ts" "import { HttpClient } from '@angular/common/http';
+@Component({ selector: 'app-book-list', template: '' })
+export class BookList {}"
 chk 2 "HttpClient dans une page" guard-frontend.sh "$(jp "$FA/features/catalog/pages/book-list.ts")"
 mkt "$FA/features/catalog/data/book.service.ts" "import { HttpClient } from '@angular/common/http';"
 mkt "$FA/features/home/home.ts" "import { HttpClient } from '@angular/common/http';

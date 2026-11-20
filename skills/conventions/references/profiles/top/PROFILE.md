@@ -11,6 +11,7 @@
 | `lombok` | `hors-domaine` | Confort dans les adapters, domaine pur |
 | `errors` | `problem-detail` | Standard RFC 9457, géré nativement par Spring |
 | `ids` | `uuid` | Identifiant connu avant l'insertion, jamais exposé si un identifiant métier existe |
+| `auth-token` | `cookie-httponly` | Le jeton n'est jamais lisible par JavaScript : une faille XSS ne peut pas le voler |
 | `front-ui` | `primeng-bootstrap` | Composants riches PrimeNG ; grille et utilitaires Bootstrap, connus de tous |
 | `front-forms` | `reactive` | Formulaires réactifs typés : stables, bien outillés |
 
