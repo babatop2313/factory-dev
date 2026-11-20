@@ -42,6 +42,8 @@
 ## Sécurité
 - `@PreAuthorize` sur chaque point d'entrée qui modifie des données (contrôleur, outil MCP, consommateur exposé).
 - L'identité de l'utilisateur vient du JWT, jamais d'un champ de la requête (pas d'IDOR).
+- Transport du JWT vers un navigateur : option `auth-token` (cookie HttpOnly + CSRF, ou corps de réponse + en-tête
+  `Authorization`). Les clients non navigateurs utilisent toujours l'en-tête `Authorization: Bearer`.
 - Configuration de sécurité dans le package de configuration globale.
 - Validation des entrées avec Jakarta Validation sur les DTO d'entrée.
 

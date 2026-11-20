@@ -35,6 +35,7 @@ déclare le dossier (étape 7). Toute installation de paquet passe par npm, avec
    Si la version refuse une option, lis `npx -y @angular/cli@<version> new --help` et adapte la commande (sans ajouter
    d'option que je n'ai pas validée) ; dis-moi ce que tu as changé.
    Ensuite, depuis `<dossier>` :
+   - **Analytics du CLI** : `npx ng analytics disable` (évite la question et l'identifiant ajouté à `angular.json`) ;
    - **Lint** : `npx ng add angular-eslint@<majeure d'Angular> --skip-confirmation` (le script `lint` doit exister ensuite) ;
    - **Bibliothèque d'interface** : selon la section de `front-ui` retenue (versions compatibles avec la version
      majeure d'Angular ; installation selon la documentation officielle de la version installée) ;

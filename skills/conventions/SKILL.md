@@ -15,7 +15,8 @@ Ce skill est un **aiguilleur**, comme `architecture` : il te dit quelles convent
 2. Lis `.claude/stack.json` (outil Read) : champs `profile` et `conventions`.
 3. Lis `references/profiles/<profile>/PROFILE.md` : il donne la valeur **par défaut** de chaque option et des préférences de travail.
 4. Pour chaque option du tableau du profil, la valeur retenue est celle de `stack.json` si elle y figure, sinon celle
-   du profil. Options backend : `mapping`, `lombok`, `errors`, `ids` ; options frontend (préfixe `front-`) :
+   du profil. Options backend : `mapping`, `lombok`, `errors`, `ids` ; option backend **et** frontend :
+   `auth-token` (transport du JWT, à lire pour toute tâche d'authentification) ; options frontend (préfixe `front-`) :
    `front-ui`, `front-forms` — ne les lis que pour une tâche frontend. Dans `references/options/<option>.md`, lis **uniquement** la section `## Valeur : <valeur retenue>`.
 5. Si `stack.json` est absent, si le profil n'existe pas, ou si une valeur ne correspond à aucune section :
    arrête-toi et signale-le. N'invente pas de convention.
