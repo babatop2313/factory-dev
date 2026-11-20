@@ -27,22 +27,23 @@ branch=$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 j() { printf '%s' "$input" | jq -r "$1 // empty" 2>/dev/null | head -c 2000; }
 first_line() { printf '%s\n' "$1" | sed -E 's/^[[:space:]#>*]+//' | grep -m1 -v '^[[:space:]]*$' | cut -c1-200; }
 
-title=""; detail=""; ev=""
+title=""; detail=""; ev=""; a=""
 case "$kind" in
   session_start)
     ev="session_start"; title="Session ouverte"; detail="$(j .source)" ;;
   session_end)
     ev="session_end"; title="Session fermée"; detail="$(j .reason)" ;;
   agent_start)
-    a="$(j .agent_type)"; ev="agent_start"; title="Agent ${a:-inconnu} au travail" ;;
+    a="$(j .agent_type)"; a="${a##*:}"; ev="agent_start"; title="Agent ${a:-inconnu} au travail" ;;
   agent_end)
-    a="$(j .agent_type)"; ev="agent_end"; title="Agent ${a:-inconnu} a terminé"
+    a="$(j .agent_type)"; a="${a##*:}"; ev="agent_end"; title="Agent ${a:-inconnu} a terminé"
     detail="$(first_line "$(j .last_assistant_message)")" ;;
   stop)
     msg="$(j .last_assistant_message)"
     if printf '%s' "$msg" | grep -q '⏸'; then
       ev="validation"; title="Validation requise"
-      detail="$(printf '%s\n' "$msg" | grep -m1 '⏸' | sed -E 's/^[[:space:]#>*]+//' | cut -c1-200)"
+      detail="$(printf '%s\n' "$msg" | grep -m1 '⏸' | sed -E 's/^[[:space:]#>*]+//')"
+      detail="${detail#⏸}"; detail="${detail#️}"; detail="$(printf '%s' "$detail" | sed -E 's/^[[:space:]]+//' | cut -c1-200)"
     else
       ev="turn_end"; title="Claude a terminé — à toi de jouer"; detail="$(first_line "$msg")"
     fi ;;
@@ -67,7 +68,8 @@ esac
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 file="$home/events/$pid.jsonl"
 jq -cn --arg ts "$ts" --arg k "$ev" --arg t "$title" --arg d "$detail" --arg b "$branch" --arg s "$(j .session_id)" \
-  '{ts: $ts, kind: $k, title: $t, detail: $d, branch: $b, session: $s}' >> "$file" 2>/dev/null
+  --arg ag "$a" '{ts: $ts, kind: $k, title: $t, detail: $d, branch: $b, session: $s} + (if $ag != "" then {agent: $ag} else {} end)' \
+  >> "$file" 2>/dev/null
 # Rétention : 1000 derniers événements par projet.
 if [ "$(wc -l < "$file" 2>/dev/null | tr -d ' ')" -gt 1200 ]; then
   tail -n 1000 "$file" > "$file.tmp" 2>/dev/null && mv "$file.tmp" "$file"
@@ -82,6 +84,7 @@ if jq --arg id "$pid" --arg n "$name" --arg p "$root" --arg ts "$ts" --arg v "$(
       --slurpfile f "$cfg" \
       '.[$id] = {name: $n, path: $p, lastSeen: $ts, kit: $v,
                  architecture: ($f[0].architecture // ""), backend: ($f[0].backend // "backend"),
+                 baseBranch: ($f[0].baseBranch // "develop"),
                  frontend: (if ($f[0] | has("frontend")) then $f[0].frontend else "frontend" end)}' \
       "$reg" > "$tmp" 2>/dev/null; then
   mv "$tmp" "$reg"

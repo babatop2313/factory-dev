@@ -438,12 +438,13 @@ out=$(printf '%s' '{"session_id":"s1","source":"startup"}' | bash "$H/events.sh"
 ok '[ -z "$out" ]' "session_start : rien sur la sortie standard (contexte de Claude)"
 ok '[ "$(evlast .kind)" = session_start ]' "session_start enregistrée"
 ok '[ "$(jq -r "[.[]][0].architecture" "$TOP_FACTORY_HOME/projects.json")" = hexagonal ]' "projet inscrit au registre (architecture)"
-printf '%s' '{"agent_type":"architect"}' | bash "$H/events.sh" agent_start
-ok '[ "$(evlast .title)" = "Agent architect au travail" ]' "agent_start avec le type d'agent"
+printf '%s' '{"agent_type":"top-factory:architect"}' | bash "$H/events.sh" agent_start
+ok '[ "$(evlast .title)" = "Agent architect au travail" ] && [ "$(evlast .agent)" = architect ]' "agent_start : type d'agent sans préfixe du plugin"
 printf '%s' '{"agent_type":"architect","last_assistant_message":"## Plan\nLe plan est prêt."}' | bash "$H/events.sh" agent_end
 ok '[ "$(evlast .detail)" = "Plan" ]' "agent_end : première ligne du message, sans marques Markdown"
 jq -cn '{last_assistant_message: "Spec rédigée.\n\n⏸ J attends ta validation de la spec </script>"}' | bash "$H/events.sh" stop
 ok '[ "$(evlast .kind)" = validation ]' "arrêt ⏸ → validation requise"
+ok '[ "$(evlast .detail)" = "J attends ta validation de la spec </script>" ]' "validation : texte sans le symbole ⏸"
 ok 'grep -q "desktop|Top Factory · .*|Validation requise" "$TOP_FACTORY_HOME/notify.log"' "validation notifiée"
 ok '! grep -q "J attends" "$TOP_FACTORY_HOME/notify.log"' "la notification ne contient pas le texte de Claude"
 jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop
@@ -461,7 +462,10 @@ jq -cn '{last_assistant_message: "⏸ verdict"}' | bash "$H/events.sh" stop
 ok 'grep -q "^ntfy|https://ntfy.sh|" "$TOP_FACTORY_HOME/notify.log" && ! grep -q "^desktop" "$TOP_FACTORY_HOME/notify.log"' "ntfy configuré, bureau désactivé"
 ok '[ "$(sed -n "s/^ntfy|[^|]*|//p" "$TOP_FACTORY_HOME/notify.log" | jq -r .topic)" = sujet-test ]' "ntfy : message JSON avec le sujet"
 D="$TOP_FACTORY_HOME/dashboard.html"
-ok '[ -f "$D" ] && grep -q "Top Factory — tableau de bord" "$D"' "tableau de bord généré"
+ok '[ -f "$D" ] && grep -q "<title>Top Factory</title>" "$D" && grep -q "Documentation" "$D"' "tableau de bord généré (vues et documentation)"
+ok '[ "$(sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d" | jq -r "[.docs.commands[].name] | index(\"feature\") != null")" = true ]' "documentation : commandes lues dans le kit"
+ok '[ "$(sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d" | jq -r ".docs.agents | length")" = 6 ]' "documentation : les 6 agents"
+ok '[ "$(evlast .agent // empty)" = "" ] || true' "événements : champ agent facultatif"
 ok '[ "$(sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d" | jq -r ".projects | length")" = 1 ]' "données du tableau de bord : JSON valide"
 ok '! sed -n "/id=\"data\"/,/^<\/script>/p" "$D" | sed "1d;\$d" | grep -q "</script>"' "texte des événements échappé (pas de </script> dans les données)"
 mv "$T/.claude/factory.json" "$T/fj2"; c=$(cat "$TOP_FACTORY_HOME"/events/*.jsonl | wc -l)

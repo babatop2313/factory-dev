@@ -200,9 +200,11 @@ Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les h
 `SubagentStart`/`SubagentStop`, `Stop`, `Notification`, commits et pushes) écrivent un journal dans
 `~/.top-factory/events/` et inscrivent le projet dans `~/.top-factory/projects.json`.
 
-- **`/top-factory:dashboard`** ouvre `~/.top-factory/dashboard.html` : une page locale, sans serveur, rechargée toutes
-  les 15 secondes, qui montre **ce qui attend une action de ta part** (⏸ validation, 🔐 autorisation, ✔️ Claude a
-  terminé), les agents au travail, et pour chaque projet la branche, le dernier commit, les specs et l'activité récente.
+- **`/top-factory:dashboard`** ouvre `~/.top-factory/dashboard.html` : une page locale, sans serveur, actualisée toutes
+  les 15 secondes, avec trois vues — **Vue d'ensemble** (ce qui attend une action de ta part, features en cours,
+  activité), **Projets** (pour chacun, le **process de la feature** étape par étape : spec, plan, code, tests, revue,
+  commit, PR, avec les validations attendues) et **Documentation** (principe, workflow, toutes les commandes et tous les
+  agents, lus dans le kit installé, garde-fous, dépannage).
 - **Notifications** à chaque validation requise, autorisation demandée ou fin de tâche : notification du système
   (Windows, macOS, Linux) et, en option, sur le téléphone avec **ntfy** (`/top-factory:dashboard notifications`).
   Elles ne contiennent que le projet, l'étape et la branche, jamais de code ni de texte de Claude.

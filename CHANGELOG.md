@@ -9,15 +9,22 @@
   `~/.top-factory/events/<projet>.jsonl` par projet (1 000 derniers événements) et un registre `projects.json`.
   Un arrêt « ⏸ » d'une commande devient une **validation requise** ; une demande d'autorisation, une **autorisation
   demandée** ; une fin de tour, **à toi de jouer**. Les projets sans factory ne sont pas suivis.
-- **Tableau de bord** (`hooks/scripts/dashboard.sh`, commande `/dashboard`) : page HTML locale, autonome, rechargée
-  toutes les 15 s — compteurs, « À traiter maintenant », une carte par projet (état, branche, dernier commit,
-  architecture, dossiers, version du kit, activité récente, specs), légende de chaque état ; thème clair et sombre.
+- **Tableau de bord** (`hooks/scripts/dashboard.sh`, commande `/dashboard`) : page HTML locale et autonome (aucun
+  serveur, aucune ressource externe, icônes Lucide intégrées), thème clair et sombre, trois vues :
+  - **Vue d'ensemble** : accueil personnalisé, indicateurs, « Ça t'attend » (phrases explicites : « Claude attend que
+    tu valides le plan technique de authentication »), features en cours avec leur progression, activité récente ;
+  - **Projets** puis **page d'un projet** : le **process de la feature** (Branche → Spec → Plan → Code → Tests → Revue →
+    Commit → Pull Request ; process court pour une branche `fix/`), déduit de l'activité des agents, avec l'étape en
+    cours, les validations attendues et les étapes non utilisées ; activité, specs, informations, autres branches ;
+  - **Documentation** : principe, workflow, démarrage, **commandes et agents lus dans le kit installé** (toujours à
+    jour), garde-fous, fichiers du projet, notifications, dépannage.
+  Actualisation toutes les 15 s (sauf sur la documentation), en pause à la demande, position de lecture conservée.
   `--prune` retire les projets disparus.
 - **Notifications** : système (Windows, macOS, `notify-send`) et **ntfy** (téléphone, serveur public ou personnel,
   jeton dans `TOP_FACTORY_NTFY_TOKEN`) ; événements notifiés réglables dans `~/.top-factory/config.json`
   (défaut : validation, autorisation, fin de tour). Le texte se limite au projet, à l'étape et à la branche.
 - Les hooks du journal ne bloquent jamais Claude et n'écrivent rien sur la sortie standard.
-- Tests : 205 scénarios en mode copie, 208 en mode plugin.
+- Tests : 209 scénarios en mode copie, 212 en mode plugin.
 
 ## v4.2.2 — JWT en cookie HttpOnly par défaut
 **À faire dans un projet existant** : rien si l'authentification n'est pas encore écrite (le profil `top` choisit
