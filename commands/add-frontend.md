@@ -38,6 +38,7 @@ déclare le dossier (étape 7). Toute installation de paquet passe par npm, avec
    - **Lint** : `npx ng add angular-eslint@<majeure d'Angular> --skip-confirmation` (le script `lint` doit exister ensuite) ;
    - **Bibliothèque d'interface** : selon la section de `front-ui` retenue (versions compatibles avec la version
      majeure d'Angular ; installation selon la documentation officielle de la version installée) ;
+   - **Budget** : si la section de `front-ui` le prévoit (PrimeNG), relève le seuil d'avertissement du bundle initial ;
    - **Proxy** : `proxy.conf.json` (`"/api"` → `http://localhost:8080`, `"secure": false`) et
      `"proxyConfig": "proxy.conf.json"` dans les options de `serve` (développement) d'`angular.json`.
 
@@ -47,7 +48,7 @@ déclare le dossier (étape 7). Toute installation de paquet passe par npm, avec
    - `src/app/core/layout/` : un en-tête minimal (nom de l'application), affiché par le composant racine avec
      `<router-outlet />` et, selon `front-ui`, le conteneur de notifications ;
    - dossiers `src/app/shared/` et `src/app/features/` (un `.gitkeep` chacun) ; page d'accueil générée par le CLI remplacée
-     par une page simple ;
+     par une page simple, rangée comme toute page : `src/app/features/home/pages/home.ts` (route chargée en lazy) ;
    - **pas d'authentification ni d'écran métier** : ils viennent par `/feature`, à partir du contrat d'API du backend.
    Vérifie : `npx ng build`, `npm run lint`, `npx ng test --watch=false` (dans le dossier du frontend). Tout doit passer.
 

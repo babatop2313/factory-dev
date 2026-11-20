@@ -38,6 +38,13 @@ if [ -f "$rules" ]; then
   done < "$rules"
 fi
 
+# --- Pas de HttpClient dans un composant, une directive ou un pipe, quel que soit son dossier ---
+content=$(tr -d '\r' < "$file")
+if printf '%s\n' "$content" | grep -qE '^[[:space:]]*@(Component|Directive|Pipe)\('; then
+  bad=$(printf '%s\n' "$content" | grep -nE "(^import .*\bHttpClient\b.*from ['\"]@angular/common/http['\"]|inject\([[:space:]]*HttpClient[[:space:]]*\))" || true)
+  [ -n "$bad" ] && violations+="• HttpClient dans un composant (ou une directive, un pipe) : l'accès HTTP passe par le service de la feature (data/), que le composant injecte."$'\n'"$bad"$'\n'
+fi
+
 # --- Une feature n'importe pas une autre feature ---
 # Résout les imports relatifs (./, ../) par rapport au dossier du fichier, puis compare la feature visée.
 resolve() {   # $1 = dossier (relatif à src/), $2 = chemin d'import relatif → chemin normalisé

@@ -15,6 +15,9 @@ Elle est appliquée par `/add-frontend` à la création de l'application, puis p
   L'installation (providers, animations, thème) suit la documentation officielle de la version installée
   (https://primeng.org/installation) : elle change d'une version majeure à l'autre.
 - Notifications : `MessageService` + un seul `<p-toast />` dans le composant racine ; l'intercepteur d'erreurs l'utilise.
+- Budget de taille : le thème PrimeNG fait dépasser le seuil d'avertissement par défaut du bundle initial (500 kB).
+  `/add-frontend` le relève à 800 kB dans `angular.json` (budget `initial`, `maximumWarning`), sans toucher au seuil
+  d'erreur : un avertissement permanent finirait par masquer un vrai problème.
 
 ## Valeur : material
 - **Angular Material** (`ng add @angular/material`), thème Material 3 ; mise en page en CSS (flex, grid), sans Bootstrap.

@@ -308,6 +308,13 @@ mkt() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$2" > "$1"; }
 mkt "$FA/features/catalog/pages/book-list.ts" "import { HttpClient } from '@angular/common/http';"
 chk 2 "HttpClient dans une page" guard-frontend.sh "$(jp "$FA/features/catalog/pages/book-list.ts")"
 mkt "$FA/features/catalog/data/book.service.ts" "import { HttpClient } from '@angular/common/http';"
+mkt "$FA/features/home/home.ts" "import { HttpClient } from '@angular/common/http';
+@Component({ selector: 'app-home', template: '' })
+export class Home {}"
+chk 2 "HttpClient dans un composant hors de pages/ (décorateur @Component)" guard-frontend.sh "$(jp "$FA/features/home/home.ts")"
+mkt "$FA/core/layout/menu.ts" "@Component({ selector: 'app-menu', template: '' })
+export class Menu { private readonly http = inject(HttpClient); }"
+chk 2 "inject(HttpClient) dans un composant de core/" guard-frontend.sh "$(jp "$FA/core/layout/menu.ts")"
 chk 0 "HttpClient dans le service de la feature" guard-frontend.sh "$(jp "$FA/features/catalog/data/book.service.ts")"
 mkt "$FA/features/catalog/pages/book-form.ts" "import { Loan } from '../../loan/data/loan.model';"
 chk 2 "feature catalog → feature loan (import relatif)" guard-frontend.sh "$(jp "$FA/features/catalog/pages/book-form.ts")"
