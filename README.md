@@ -205,9 +205,11 @@ Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les h
   activité), **Projets** (pour chacun, le **process de la feature** étape par étape : spec, plan, code, tests, revue,
   commit, PR, avec les validations attendues) et **Documentation** (principe, workflow, toutes les commandes et tous les
   agents, lus dans le kit installé, garde-fous, dépannage).
-- **Notifications** à chaque validation requise, autorisation demandée ou fin de tâche : notification du système
-  (Windows, macOS, Linux) et, en option, sur le téléphone avec **ntfy** (`/top-factory:dashboard notifications`).
-  Elles ne contiennent que le projet, l'étape et la branche, jamais de code ni de texte de Claude.
+- **Notifications**, seulement quand c'est utile : ta décision est nécessaire pour continuer, Claude attend ton
+  autorisation, tout est terminé, ou un agent passe la main à un autre. Message explicite (« Ta décision est
+  nécessaire : relis le plan technique de « authentication », puis réponds pour que Claude continue. »), notification
+  du système et, en option, sur le téléphone avec **ntfy** (`/top-factory:dashboard notifications`). Jamais de code
+  ni de texte de Claude.
 - Réglages : `~/.top-factory/config.json` (créé au premier événement) ; dossier personnalisable avec `TOP_FACTORY_HOME`.
 
 ## Frontend Angular

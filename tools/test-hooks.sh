@@ -434,28 +434,53 @@ echo "== tableau de bord : journal, notifications, page"
 export TOP_FACTORY_HOME="$T/tfh" TOP_FACTORY_NOTIFY=dry TOP_FACTORY_DASHBOARD_SYNC=1
 ok() { if eval "$1"; then pass=$((pass+1)); echo "  ✓ $2"; else fail=$((fail+1)); echo "  ✗ $2"; fi; }
 evlast() { tail -n 1 "$TOP_FACTORY_HOME"/events/*.jsonl | jq -r "$1"; }
+nlog() { cat "$TOP_FACTORY_HOME/notify.log" 2>/dev/null; }
+nlines() { nlog | wc -l | tr -d ' '; }
 out=$(printf '%s' '{"session_id":"s1","source":"startup"}' | bash "$H/events.sh" session_start)
 ok '[ -z "$out" ]' "session_start : rien sur la sortie standard (contexte de Claude)"
 ok '[ "$(evlast .kind)" = session_start ]' "session_start enregistrée"
 ok '[ "$(jq -r "[.[]][0].architecture" "$TOP_FACTORY_HOME/projects.json")" = hexagonal ]' "projet inscrit au registre (architecture)"
+out=$(printf '%s' '{"prompt":"mot de passe secret"}' | bash "$H/events.sh" prompt)
+ok '[ -z "$out" ] && [ "$(evlast .kind)" = prompt ] && ! grep -q "secret" "$TOP_FACTORY_HOME"/events/*.jsonl' "nouvelle demande enregistrée sans son texte"
 printf '%s' '{"agent_type":"top-factory:architect"}' | bash "$H/events.sh" agent_start
 ok '[ "$(evlast .title)" = "Agent architect au travail" ] && [ "$(evlast .agent)" = architect ]' "agent_start : type d'agent sans préfixe du plugin"
+ok 'nlog | grep -q "relais entre agents|L.architecte se met au travail"' "agent qui commence : notification de relais, message clair"
+n=$(nlines)
+jq -cn '{last_assistant_message: "Je te présenterai le plan quand l architecte aura fini."}' | bash "$H/events.sh" stop
+ok '[ "$(evlast .kind)" = turn_end ] && [ "$(nlines)" = "$n" ]' "fin de tour avec un agent encore au travail : aucune notification"
 printf '%s' '{"agent_type":"architect","last_assistant_message":"## Plan\nLe plan est prêt."}' | bash "$H/events.sh" agent_end
 ok '[ "$(evlast .detail)" = "Plan" ]' "agent_end : première ligne du message, sans marques Markdown"
-jq -cn '{last_assistant_message: "Spec rédigée.\n\n⏸ J attends ta validation de la spec </script>"}' | bash "$H/events.sh" stop
+jq -cn '{last_assistant_message: "Plan prêt.\n\n⏸ J attends ta validation du plan </script>"}' | bash "$H/events.sh" stop
 ok '[ "$(evlast .kind)" = validation ]' "arrêt ⏸ → validation requise"
-ok '[ "$(evlast .detail)" = "J attends ta validation de la spec </script>" ]' "validation : texte sans le symbole ⏸"
-ok 'grep -q "desktop|Top Factory · .*|Validation requise" "$TOP_FACTORY_HOME/notify.log"' "validation notifiée"
-ok '! grep -q "J attends" "$TOP_FACTORY_HOME/notify.log"' "la notification ne contient pas le texte de Claude"
+ok '[ "$(evlast .detail)" = "J attends ta validation du plan </script>" ]' "validation : texte sans le symbole ⏸"
+ok 'nlog | grep -q "ta validation est requise|Ta décision est nécessaire : relis le plan technique"' "validation : message explicite (quoi relire)"
+ok '! nlog | grep -q "J attends"' "la notification ne contient pas le texte de Claude"
+printf '%s' '{"agent_type":"architect"}' | bash "$H/events.sh" agent_start
+printf '%s' '{"agent_type":"reviewer"}' | bash "$H/events.sh" agent_start
+ok 'nlog | grep -q "relais entre agents|L.architecte passe la main au relecteur\."' "passage de relais entre deux agents : message clair (« au relecteur »)"
+n=$(nlines)
+printf '%s' '{"agent_type":"reviewer"}' | bash "$H/events.sh" agent_start
+ok '[ "$(nlines)" = "$n" ]' "même agent relancé dans les 2 minutes : pas de notification en double"
+for a in architect reviewer reviewer; do printf '{"agent_type":"%s"}' "$a" | bash "$H/events.sh" agent_end; done
+printf '%s' '{}' | bash "$H/events.sh" prompt
+n=$(nlines)
 jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop
-ok '[ "$(evlast .kind)" = turn_end ]' "fin de tour sans ⏸ → à toi de jouer"
+ok '[ "$(evlast .kind)" = turn_end ] && [ "$(nlines)" = "$n" ]' "réponse rapide (moins de 30 s) : pas de notification"
+jq '.notifications.minTaskSeconds = 0' "$TOP_FACTORY_HOME/config.json" > "$T/c" && mv "$T/c" "$TOP_FACTORY_HOME/config.json"
+printf '%s' '{}' | bash "$H/events.sh" prompt
+jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop
+ok 'nlog | tail -n 1 | grep -q "travail terminé|.*Claude a terminé.*À toi de jouer"' "tâche entièrement terminée : notifiée"
 printf '%s' '{"notification_type":"permission_prompt","message":"Claude needs your permission to use Bash"}' | bash "$H/events.sh" notification
-ok '[ "$(evlast .kind)" = permission ]' "demande d'autorisation"
-n=$(wc -l < "$TOP_FACTORY_HOME/notify.log" | tr -d ' ')
+ok '[ "$(evlast .kind)" = permission ] && nlog | tail -n 1 | grep -q "autorisation demandée|Claude attend ton autorisation pour utiliser Bash"' "autorisation demandée : outil nommé"
+n=$(nlines)
 printf '%s' '{"notification_type":"idle_prompt","message":"Claude is waiting for your input"}' | bash "$H/events.sh" notification
-ok '[ "$(evlast .kind)" = attention ] && [ "$(wc -l < "$TOP_FACTORY_HOME/notify.log" | tr -d " ")" = "$n" ]' "attente simple : enregistrée, non notifiée (réglage par défaut)"
+ok '[ "$(evlast .kind)" = attention ] && [ "$(nlines)" = "$n" ]' "attente simple : enregistrée, non notifiée"
 printf '%s' "$(jc 'ls -la')" | bash "$H/events.sh" bash
 ok '[ "$(evlast .kind)" = attention ]' "commande ordinaire : aucun événement"
+jq '.notifications.events = ["validation","permission","turn_end"]' "$TOP_FACTORY_HOME/config.json" > "$T/c" && mv "$T/c" "$TOP_FACTORY_HOME/config.json"
+printf '%s' '{}' | bash "$H/events.sh" prompt; n=$(nlines)
+jq -cn '{last_assistant_message: "Terminé."}' | bash "$H/events.sh" stop
+ok '[ "$(nlines)" -gt "$n" ]' "ancien réglage « turn_end » compris comme « task_done »"
 jq '.notifications.ntfy.topic = "sujet-test" | .notifications.desktop = false' "$TOP_FACTORY_HOME/config.json" > "$T/c" && mv "$T/c" "$TOP_FACTORY_HOME/config.json"
 : > "$TOP_FACTORY_HOME/notify.log"
 jq -cn '{last_assistant_message: "⏸ verdict"}' | bash "$H/events.sh" stop

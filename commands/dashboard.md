@@ -17,8 +17,10 @@ Les données restent sur le poste. `<kit>` est annoncé au début de la session.
    plus) et donne la liste retirée.
 3. **`notifications`** : lis `~/.top-factory/config.json` (outil Read) et explique, sans le modifier sans mon accord :
    - `notifications.desktop` (`true`/`false`) : notification du système (Windows, macOS, Linux avec `notify-send`) ;
-   - `notifications.events` : événements notifiés — `validation` (arrêt ⏸ d'une commande), `permission` (autorisation
-     demandée), `turn_end` (Claude a terminé et rend la main), `attention`, `agent_end`, `commit`, `push` ;
+   - `notifications.events` : quand prévenir — `validation` (une commande s'est arrêtée ⏸ : ta décision est nécessaire),
+     `permission` (Claude attend ton autorisation), `task_done` (tout est terminé : aucun agent encore au travail),
+     `handoff` (un agent passe la main à un autre) ; par défaut, les quatre ;
+   - `notifications.minTaskSeconds` (défaut 30) : une réponse plus rapide ne déclenche pas « travail terminé » ;
    - `notifications.ntfy` : notifications sur le téléphone avec l'application **ntfy** (gratuite, sans compte) :
      installer l'application, choisir un sujet **long et imprévisible** (il fait office de mot de passe, par exemple
      `top-factory-` suivi d'une vingtaine de caractères aléatoires), s'y abonner dans l'application, puis renseigner

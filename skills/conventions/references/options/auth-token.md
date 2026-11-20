@@ -22,6 +22,20 @@ Le jeton n'est **jamais lisible par JavaScript** : une faille XSS ne peut pas le
 - `POST <api>/auth/logout` : renvoie le cookie vidé (`Max-Age=0`, mêmes attributs) ; 204.
 - `GET <api>/auth/me` : identité de l'utilisateur courant (e-mail, rôles, expiration) ou 401 — c'est ainsi que le
   frontend sait s'il est connecté.
+- **Pièges vérifiés en conditions réelles** (chacun couvert par un test) :
+  - le résolveur de jeton **ignore le cookie** sur la connexion et la déconnexion (un cookie expiré bloquerait la
+    connexion) ; si un en-tête `Authorization` est présent, le cookie n'est **jamais** lu ;
+  - **contournement CSRF** : cookie valide + en-tête `Authorization` qui n'est pas `Bearer` (`Basic …`, vide) → 401,
+    jamais une requête acceptée sans jeton CSRF ; tester POST, PUT et DELETE par cookie sans jeton → 403 ;
+  - le cookie `XSRF-TOKEN` ne doit pas être **écrasé** par les réponses de connexion et de déconnexion ; il est `Secure`
+    et `SameSite=Strict`, et reste lisible par JavaScript (`HttpOnly` absent : c'est voulu) ;
+  - les 401 et 403 de Spring Security renvoient un `ProblemDetail` (comme le reste de l'API), et **tout 401** porte
+    `WWW-Authenticate: Bearer` — y compris l'échec de connexion ;
+  - `/error` accessible sans authentification ; un endpoint public l'est pour **sa méthode seulement**
+    (`permitAll` sur `POST /dev/token`, pas sur toutes les méthodes) ;
+  - un compte désactivé reste utilisable jusqu'à l'expiration de son jeton si `/me` ne relit pas la base : à écrire
+    comme limite connue (ou relire la base) ;
+  - le serveur de test (MockMvc) ne recopie pas toujours l'attribut `SameSite` dans l'en-tête : vérifier l'objet cookie.
 - Pas de CORS : le frontend est servi sur la même origine (proxy en développement, reverse proxy en production).
 
 **Frontend**
