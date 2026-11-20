@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Journal d'activité et notifications de la factory (tableau de bord).
-# Appelé par les hooks : events.sh <session_start|session_end|agent_start|agent_end|stop|notification|bash>
+# Appelé par les hooks : events.sh <session_start|session_end|prompt|agent_start|agent_end|stop|notification|bash>
 #
 #  - écrit un événement dans ${TOP_FACTORY_HOME:-~/.top-factory}/events/<projet>.jsonl et inscrit le projet
 #    dans projects.json ;
-#  - envoie une notification (bureau et/ou ntfy) pour les événements choisis dans config.json ;
+#  - envoie une notification (bureau et/ou ntfy) SEULEMENT quand c'est utile (réglable dans config.json) :
+#      validation  — une commande s'est arrêtée (⏸) : ta décision est nécessaire pour continuer ;
+#      permission  — Claude attend ton autorisation ;
+#      task_done   — Claude a complètement terminé (aucun agent encore au travail, tâche d'au moins minTaskSeconds) ;
+#      handoff     — un agent passe la main à un autre ;
 #  - régénère le tableau de bord (dashboard.html) en arrière-plan.
 # Ne bloque JAMAIS Claude (exit 0 dans tous les cas) et n'écrit RIEN sur la sortie standard
 # (pour SessionStart, la sortie serait injectée dans le contexte de Claude).
@@ -23,7 +27,7 @@ home="${TOP_FACTORY_HOME:-$HOME/.top-factory}"
 mkdir -p "$home/events" 2>/dev/null || exit 0
 name=$(basename "$root")
 pid="$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '-')-$(printf '%s' "$root" | cksum | cut -d' ' -f1)"
-branch=$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+branch=$(git -C "$root" symbolic-ref --short -q HEAD 2>/dev/null || git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 j() { printf '%s' "$input" | jq -r "$1 // empty" 2>/dev/null | head -c 2000; }
 first_line() { printf '%s\n' "$1" | sed -E 's/^[[:space:]#>*]+//' | grep -m1 -v '^[[:space:]]*$' | cut -c1-200; }
 
@@ -33,6 +37,8 @@ case "$kind" in
     ev="session_start"; title="Session ouverte"; detail="$(j .source)" ;;
   session_end)
     ev="session_end"; title="Session fermée"; detail="$(j .reason)" ;;
+  prompt)
+    ev="prompt"; title="Nouvelle demande" ;;          # le texte de la demande n'est jamais enregistré
   agent_start)
     a="$(j .agent_type)"; a="${a##*:}"; ev="agent_start"; title="Agent ${a:-inconnu} au travail" ;;
   agent_end)
@@ -92,21 +98,73 @@ else
   rm -f "$tmp"
 fi
 
-# --- Notification ---
+# --- Notification : seulement quand l'humain doit intervenir, quand tout est fini, ou à un passage de relais ---
 conf="$home/config.json"
-[ -f "$conf" ] || jq -n '{notifications: {desktop: true, events: ["validation", "permission", "turn_end"],
-                          ntfy: {server: "https://ntfy.sh", topic: ""}}}' > "$conf" 2>/dev/null
-wanted=$(jq -r --arg k "$ev" '(.notifications.events // ["validation","permission","turn_end"]) | index($k) != null' "$conf" 2>/dev/null)
+[ -f "$conf" ] || jq -n '{notifications: {desktop: true, events: ["validation", "permission", "task_done", "handoff"],
+                          minTaskSeconds: 30, ntfy: {server: "https://ntfy.sh", topic: ""}}}' > "$conf" 2>/dev/null
+recent=$(tail -n 120 "$file" 2>/dev/null)
+# Agents encore au travail (depuis le début de la session).
+open=$(printf '%s\n' "$recent" | jq -s '[.[] | objects | select(.kind == "agent_start" or .kind == "agent_end" or .kind == "session_start")]
+         | reduce .[] as $e (0; if $e.kind == "session_start" then 0 elif $e.kind == "agent_start" then . + 1
+                                 elif . > 0 then . - 1 else 0 end)' 2>/dev/null || echo 0)
+feature="${branch#*/}"
+F=""; base=$(jq -r '.baseBranch // "develop"' "$cfg" 2>/dev/null)
+case "$branch" in ""|HEAD|main|master|"$base") ;; *) F="« $feature »" ;; esac
+who() { case "$1" in
+  spec-writer) echo "la rédactrice de specs" ;; architect) echo "l'architecte" ;; backend-dev) echo "le développeur backend" ;;
+  frontend-dev) echo "le développeur frontend" ;; test-writer) echo "l'auteur des tests" ;; reviewer) echo "le relecteur" ;;
+  *) echo "l'agent ${1:-inconnu}" ;; esac; }
+what() { case "$1" in
+  spec-writer) echo "la spec" ;; architect) echo "le plan technique" ;; reviewer) echo "le verdict de la revue" ;;
+  test-writer) echo "les tests" ;; backend-dev|frontend-dev) echo "le code" ;; *) echo "la proposition de Claude" ;; esac; }
+to_who() { local w; w=$(who "$1"); case "$w" in "le "*) echo "au ${w#le }" ;; *) echo "à $w" ;; esac; }
+cap() { printf '%s%s' "$(printf '%s' "${1:0:1}" | tr '[:lower:]' '[:upper:]')" "${1:1}"; }
+last_agent() { printf '%s\n' "$recent" | jq -rs --arg k "$1" '[.[] | objects | select(.kind == $k and .agent != null)] | .[-2:] | map(.agent) | .[]' 2>/dev/null; }
+notif=""; nbody=""
+case "$ev" in
+  validation)
+    prev=$(last_agent agent_end | tail -n 1)
+    notif="validation"; nbody="Ta décision est nécessaire : relis $(what "$prev")${F:+ de $F}, puis réponds pour que Claude continue." ;;
+  permission)
+    tool=$(printf '%s' "$detail" | sed -nE 's/.*permission to use ([A-Za-z0-9_:.-]+).*/\1/p')
+    notif="permission"; nbody="Claude attend ton autorisation${tool:+ pour utiliser $tool}${F:+ (feature $F)}." ;;
+  turn_end)
+    if [ "${open:-0}" -eq 0 ]; then
+      secs=$(printf '%s\n' "$recent" | jq -rs '[.[] | objects | select(.kind == "prompt")] | last | if . then (now - (.ts | fromdateiso8601) | floor) else 999999 end' 2>/dev/null || echo 999999)
+      min=$(jq -r '.notifications.minTaskSeconds // 30' "$conf" 2>/dev/null || echo 30)
+      if [ "${secs:-0}" -ge "${min:-30}" ]; then
+        dur=""; [ "$secs" -lt 999999 ] && [ "$secs" -ge 5 ] && { [ "$secs" -ge 120 ] && dur=" en $((secs / 60)) min" || dur=" en ${secs} s"; }
+        notif="task_done"; nbody="${F:+$F : }Claude a terminé$dur. À toi de jouer."
+      fi
+    fi ;;
+  agent_start)
+    prev=$(last_agent agent_end | tail -n 1)
+    again=$(printf '%s\n' "$recent" | jq -rs --arg a "$a" '[.[] | objects | select(.kind == "agent_start" and .agent == $a)] | .[-2:]
+              | if length == 2 then ((.[1].ts | fromdateiso8601) - (.[0].ts | fromdateiso8601)) < 120 else false end' 2>/dev/null)
+    if [ "$again" != "true" ]; then
+      notif="handoff"
+      if [ -n "$prev" ] && [ "$prev" != "$a" ]; then nbody="$(cap "$(who "$prev")") passe la main $(to_who "$a")${F:+ ($F)}."
+      else nbody="$(cap "$(who "$a")") se met au travail${F:+ sur $F}."; fi
+    fi ;;
+esac
+# Ancien réglage : « turn_end » vaut « task_done ».
+wanted=$(jq -r --arg k "$notif" '(.notifications.events // ["validation","permission","task_done","handoff"])
+           | map(if . == "turn_end" then "task_done" else . end) | index($k) != null' "$conf" 2>/dev/null)
 mode="${TOP_FACTORY_NOTIFY:-on}"                     # on | off | dry (tests : écrit dans notify.log)
-if [ "$wanted" = "true" ] && [ "$mode" != "off" ]; then
-  ntitle="Top Factory · $name"
-  nbody="$title${branch:+ — $branch}"
+if [ -n "$notif" ] && [ "$wanted" = "true" ] && [ "$mode" != "off" ]; then
+  case "$notif" in
+    validation) ntitle="$name · ta validation est requise" ;;
+    permission) ntitle="$name · autorisation demandée" ;;
+    task_done)  ntitle="$name · travail terminé" ;;
+    handoff)    ntitle="$name · relais entre agents" ;;
+  esac
   topic=$(jq -r '.notifications.ntfy.topic // ""' "$conf" 2>/dev/null)
   server=$(jq -r '.notifications.ntfy.server // "https://ntfy.sh"' "$conf" 2>/dev/null)
   desktop=$(jq -r 'if .notifications.desktop == false then "false" else "true" end' "$conf" 2>/dev/null)
-  prio=3; case "$ev" in validation|permission) prio=4 ;; esac
-  payload=$(jq -cn --arg tp "$topic" --arg t "$ntitle" --arg m "$nbody" --argjson p "$prio" \
-    '{topic: $tp, title: $t, message: $m, priority: $p, tags: ["robot"]}')
+  prio=3; tag="robot"
+  case "$notif" in validation|permission) prio=4; tag="raised_hand" ;; task_done) tag="white_check_mark" ;; handoff) prio=2; tag="arrows_counterclockwise" ;; esac
+  payload=$(jq -cn --arg tp "$topic" --arg t "$ntitle" --arg m "$nbody" --argjson p "$prio" --arg tag "$tag" \
+    '{topic: $tp, title: $t, message: $m, priority: $p, tags: [$tag]}')
   if [ "$mode" = "dry" ]; then
     { [ "$desktop" = "true" ] && echo "desktop|$ntitle|$nbody"; [ -n "$topic" ] && echo "ntfy|${server%/}|$payload"; } >> "$home/notify.log"
   else

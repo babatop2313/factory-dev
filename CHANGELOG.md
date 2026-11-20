@@ -1,5 +1,25 @@
 # Changelog
 
+## v4.3.1 — Notifications utiles, thème au choix, leçons de l'authentification
+**À faire dans un projet existant** : rien. Ceux qui ont déjà un `~/.top-factory/config.json` peuvent remplacer
+`"turn_end"` par `"task_done", "handoff"` dans `notifications.events` (l'ancien nom reste compris).
+
+- **Notifications seulement quand c'est utile** : `validation` (ta décision est nécessaire), `permission`,
+  `task_done` (Claude a vraiment fini : **aucun agent encore au travail** et tâche d'au moins `minTaskSeconds`, 30 s
+  par défaut) et `handoff` (un agent passe la main à un autre ; pas de doublon si le même agent repart dans les
+  2 minutes). Avant, chaque fin de tour notifiait, même quand des agents travaillaient encore en arrière-plan.
+- **Messages explicites** : titre « <projet> · ta validation est requise / autorisation demandée / travail terminé /
+  relais entre agents », et une phrase qui dit quoi faire et sur quelle feature (« Ta décision est nécessaire : relis
+  le plan technique de « authentication », puis réponds pour que Claude continue. »). Toujours sans texte de Claude.
+- Nouveau hook `UserPromptSubmit` : enregistre qu'une demande a été faite (jamais son texte), pour mesurer la durée
+  d'une tâche et savoir qu'une validation a été donnée.
+- **Tableau de bord** : choix du thème **Auto / Clair / Sombre**, mémorisé ; « Claude travaille » quand une demande est
+  en cours ou que des agents travaillent encore ; une validation donnée sort de l'état « ta validation ».
+- **Option `auth-token`** (`cookie-httponly`) : pièges vérifiés sur Bibliothèque ajoutés à la fiche — contournement
+  CSRF par un en-tête non `Bearer`, cookie `XSRF-TOKEN` écrasé à la connexion, `Secure`/`SameSite` sur ce cookie,
+  `WWW-Authenticate` sur tout 401, `permitAll` limité à la bonne méthode, limite du compte désactivé.
+- Tests : 216 scénarios en mode copie, 219 en mode plugin.
+
 ## v4.3.0 — Tableau de bord et notifications
 **À faire dans un projet existant** : rien (les hooks viennent du plugin). Facultatif : régler les notifications avec
 `/top-factory:dashboard notifications`.
