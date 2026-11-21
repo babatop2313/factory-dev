@@ -130,6 +130,13 @@ setstack '"postgresql"'
 
 echo "== guard-files"
 chk 2 "édition de factory.json" guard-files.sh "$(jp "$T/.claude/factory.json")"
+jr() { printf '{"tool_name":"Read","tool_input":{"file_path":"%s"}}' "$1"; }
+chk 2 "lecture de .env refusée" guard-files.sh "$(jr "$T/.env")"
+chk 2 "lecture de .env.local refusée" guard-files.sh "$(jr "$T/.env.local")"
+chk 2 "lecture d'un .env.* inconnu refusée" guard-files.sh "$(jr "$T/.env.recette")"
+chk 0 "lecture de .env.example autorisée (noms sans valeur)" guard-files.sh "$(jr "$T/.env.example")"
+chk 0 "lecture de factory.json autorisée" guard-files.sh "$(jr "$T/.claude/factory.json")"
+chk 0 "écriture de .env.example autorisée" guard-files.sh "$(jp "$T/.env.example")"
 chk 2 "édition de factory.json (chemin Windows)" guard-files.sh '{"tool_input":{"file_path":"C:\\Users\\btop\\proj\\.claude\\factory.json"}}'
 chk 2 "fichier .pem" guard-files.sh '{"tool_input":{"file_path":"C:\\Users\\btop\\proj\\cert\\a.pem"}}'
 chk 2 "fichier .env" guard-files.sh "$(jp "$T/.env")"
@@ -493,6 +500,13 @@ ok '[ "$(sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d" | jq -r ".docs
 ok '[ "$(evlast .agent // empty)" = "" ] || true' "événements : champ agent facultatif"
 ok '[ "$(sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d" | jq -r ".projects | length")" = 1 ]' "données du tableau de bord : JSON valide"
 ok '! sed -n "/id=\"data\"/,/^<\/script>/p" "$D" | sed "1d;\$d" | grep -q "</script>"' "texte des événements échappé (pas de </script> dans les données)"
+mkdir -p "$T/docs/specs"; printf '# Plan\n\n<script>alert(1)</script>\n' > "$T/docs/specs/demo-plan.md"; printf '# Projet\n' > "$T/CLAUDE.md"
+bash "$H/dashboard.sh"
+DJ() { sed -n "/id=\"data\"/,/<\/script>/p" "$D" | sed "1d;\$d"; }
+ok '[ "$(DJ | jq -r ".projects[0].docs | map(.name) | join(\",\")")" = "demo-plan.md,CLAUDE.md" ]' "documents intégrés : specs puis CLAUDE.md"
+ok 'DJ | jq -e ".projects[0].docs[0].content | contains(\"alert(1)\")" >/dev/null && ! DJ | grep -q "<script>alert"' "contenu des documents intégré et échappé dans la page"
+ok 'DJ | jq -e ".projects[0].docs[0].url | startswith(\"file://\")" >/dev/null' "lien « Ouvrir le fichier » (file://)"
+rm -rf "$T/docs/specs/demo-plan.md" "$T/CLAUDE.md"
 mv "$T/.claude/factory.json" "$T/fj2"; c=$(cat "$TOP_FACTORY_HOME"/events/*.jsonl | wc -l)
 printf '%s' '{"source":"startup"}' | bash "$H/events.sh" session_start
 ok '[ "$(cat "$TOP_FACTORY_HOME"/events/*.jsonl | wc -l)" = "$c" ]' "projet sans factory : rien d'enregistré"

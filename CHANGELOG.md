@@ -1,5 +1,24 @@
 # Changelog
 
+## v4.3.2 — Documents et réponses dans le tableau de bord
+**À faire dans un projet existant** : `/top-factory:init` (mise à jour) pour la nouvelle règle de lecture des `.env`
+dans `.claude/settings.json`.
+
+- **Documents dans la page** : les 20 specs et plans les plus récents de `docs/specs/` et le `CLAUDE.md` du projet
+  s'affichent mis en forme (titres, listes, tableaux, code, sommaire), avec **Imprimer / PDF** (mise en page
+  d'impression dédiée) et **Ouvrir le fichier**. Tout le texte est échappé : aucun HTML d'un document ne s'exécute.
+- **Répondre à une validation** : sur la page du projet, réponses prêtes selon l'étape (spec, plan, verdict de la
+  revue) — « Valider et continuer », « Valider avec remarques », « Demander des corrections » —, champ pour les
+  remarques, aperçu et bouton **Copier la réponse** à coller dans la session Claude ; lien direct vers le document à
+  relire. La page ne parle jamais à Claude : rien ne part sans toi. Pas d'actualisation pendant la saisie.
+- Documentation : section **Répondre à une validation**, dont **Remote Control** (`/remote-control`, `claude --rc`)
+  pour répondre depuis le téléphone.
+- **`/fix-bug`** : arrêt « ⏸ verdict » après la revue, comme `/feature` : aucun commit sans ton accord.
+- **`.env.example` lisible** : la règle de permission `Read(./.env.*)` est remplacée par une liste précise (`.env`,
+  `.env.local`, `.env.*.local`, `.env.dev`, `.env.development`, `.env.test`, `.env.prod`, `.env.production`,
+  `.env.staging`) et `guard-files` refuse désormais aussi la **lecture** de tout autre `.env.*`, sauf `.env.example`.
+- Tests : 225 scénarios en mode copie, 228 en mode plugin.
+
 ## v4.3.1 — Notifications utiles, thème au choix, leçons de l'authentification
 **À faire dans un projet existant** : rien. Ceux qui ont déjà un `~/.top-factory/config.json` peuvent remplacer
 `"turn_end"` par `"task_done", "handoff"` dans `notifications.events` (l'ancien nom reste compris).
