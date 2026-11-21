@@ -203,8 +203,10 @@ Chaque projet initialisé est suivi automatiquement, sans rien à lancer : les h
 - **`/top-factory:dashboard`** ouvre `~/.top-factory/dashboard.html` : une page locale, sans serveur, actualisée toutes
   les 15 secondes, avec trois vues — **Vue d'ensemble** (ce qui attend une action de ta part, features en cours,
   activité), **Projets** (pour chacun, le **process de la feature** étape par étape : spec, plan, code, tests, revue,
-  commit, PR, avec les validations attendues) et **Documentation** (principe, workflow, toutes les commandes et tous les
-  agents, lus dans le kit installé, garde-fous, dépannage).
+  commit, PR, avec les validations attendues ; les specs, plans et le `CLAUDE.md` à lire dans la page, à imprimer ou
+  exporter en PDF ; des **réponses prêtes à copier** pour valider, valider avec remarques ou demander des corrections)
+  et **Documentation** (principe, workflow, toutes les commandes et tous les agents, lus dans le kit installé,
+  garde-fous, répondre à distance avec Remote Control, dépannage).
 - **Notifications**, seulement quand c'est utile : ta décision est nécessaire pour continuer, Claude attend ton
   autorisation, tout est terminé, ou un agent passe la main à un autre. Message explicite (« Ta décision est
   nécessaire : relis le plan technique de « authentication », puis réponds pour que Claude continue. »), notification

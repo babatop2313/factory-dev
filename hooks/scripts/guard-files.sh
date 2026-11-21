@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
-# PreToolUse (Edit|Write) : protège le verrou d'architecture, les fichiers sensibles
+# PreToolUse (Edit|Write|Read) : protège le verrou d'architecture, les fichiers sensibles
 # et les migrations Flyway déjà écrites. exit 2 = blocage, stderr est renvoyé à Claude.
+# En lecture (Read), seuls les fichiers sensibles sont refusés ; .env.example (noms sans valeur) reste lisible.
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 need_jq block
 
-file=$(norm_path "$(jq -r '.tool_input.file_path // ""')")
+input=$(cat)
+file=$(norm_path "$(printf '%s' "$input" | jq -r '.tool_input.file_path // ""')")
+tool=$(printf '%s' "$input" | jq -r '.tool_name // ""')
 [ -z "$file" ] && exit 0
+if [ "$tool" = "Read" ]; then
+  case "$file" in
+    *.env|*.env.*|*/secrets/*|*.pem|*.key|*.jks|*.p12)
+      [[ "$file" == *.env.example ]] && exit 0
+      echo "Fichier sensible : $file ne se lit pas (il peut contenir des secrets). Demande à l'humain ce dont tu as besoin." >&2
+      exit 2 ;;
+  esac
+  exit 0
+fi
 
 # Verrou : l'architecture est choisie une fois, par un humain, au démarrage du projet.
 if [[ "$file" == */.claude/factory.json || "$file" == .claude/factory.json ]]; then

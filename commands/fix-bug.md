@@ -11,8 +11,12 @@ Bug signalé : $ARGUMENTS
 2. **Reproduire** : délègue à l'agent `test-writer` l'écriture d'un test qui échoue et prouve le bug. Lance-le : il doit être rouge.
 3. **Corriger** : délègue à `backend-dev` ou `frontend-dev` la correction minimale de la cause racine (pas un contournement).
 4. **Vérifier** : le test de reproduction passe au vert, la suite complète du module aussi.
-5. **Revue** : agent `reviewer` sur le diff.
-6. **Clôture** : commit `fix(<module>): <description>` et résumé : cause, correction, test ajouté.
+5. **Revue** : agent `reviewer` sur le diff. Points bloquants ou majeurs : renvoie-les à l'agent concerné, puis revue
+   rapide.
+6. **Verdict** : présente-moi le verdict (bloquant, majeur, mineur, points restants) et les résultats des tests.
+   **⏸ ARRÊT : attends ma décision avant tout commit.**
+7. **Clôture** (après mon accord) : commit `fix(<module>): <description>` et résumé : cause, correction, test ajouté.
+   Ne pousse pas sans mon accord.
 
 En déléguant à un agent, indique-lui le chemin de `<kit>` (annoncé au début de la session) et celui de la référence
 d'architecture active.

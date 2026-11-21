@@ -49,9 +49,27 @@ for id in $(jq -r 'keys[]' "$reg" 2>/dev/null); do
               | jq -Rcs 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], mtime: (.[1] | tonumber)})')
     fi
   fi
-  projects=$(jq -c --arg id "$id" --slurpfile r "$reg" --argjson ev "$ev" --argjson specs "$specs" \
+  # Documents lisibles dans la page : 20 specs et plans les plus récents, puis CLAUDE.md (200 Ko maximum chacun).
+  docs="[]"
+  if [ -d "$p" ]; then
+    list=$( { for f in "$p"/docs/specs/*.md; do [ -f "$f" ] && printf '%s\t%s\n' "$(date -r "$f" +%s 2>/dev/null || echo 0)" "$f"; done \
+                | sort -nr | head -20 | cut -f2-
+              for c in CLAUDE.md claude.md; do [ -f "$p/$c" ] && { echo "$p/$c"; break; }; done; } )
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      if command -v cygpath >/dev/null 2>&1; then url="file:///$(cygpath -m "$f")"; else url="file://$f"; fi
+      url=$(printf '%s' "$url" | sed 's/ /%20/g')
+      head -c 200000 "$f" > "$home/.doc.$$" 2>/dev/null
+      big=false; [ "$(wc -c < "$f" | tr -d ' ')" -gt 200000 ] && big=true
+      docs=$(jq -c --arg n "$(basename "$f")" --arg rel "${f#"$p"/}" --arg url "$url" \
+                --argjson m "$(date -r "$f" +%s 2>/dev/null || echo 0)" --rawfile c "$home/.doc.$$" --argjson big "$big" \
+             '. + [{name: $n, rel: $rel, url: $url, mtime: $m, content: $c, truncated: $big}]' <<< "$docs" 2>/dev/null || printf '%s' "$docs")
+    done <<< "$list"
+    rm -f "$home/.doc.$$"
+  fi
+  projects=$(jq -c --arg id "$id" --slurpfile r "$reg" --argjson ev "$ev" --argjson specs "$specs" --argjson docs "$docs" \
                 --argjson exists "$exists" --arg br "$br" --arg last "$last" \
-    '. + [$r[0][$id] + {id: $id, exists: $exists, branch: $br, lastCommit: $last, specs: $specs, events: $ev}]' \
+    '. + [$r[0][$id] + {id: $id, exists: $exists, branch: $br, lastCommit: $last, specs: $specs, docs: $docs, events: $ev}]' \
     <<< "$projects")
 done
 
@@ -73,7 +91,7 @@ data=$(jq -cn --argjson p "$projects" --arg g "$(date -u +%Y-%m-%dT%H:%M:%SZ)" -
           --argjson commands "$(docs_list commands)" --argjson agents "$(docs_list agents)" \
           '{generated: $g, kit: $v, prefix: $prefix, user: $user, home: $home,
             projects: $p, docs: {commands: $commands, agents: $agents}}' \
-       | sed 's#</#<\\/#g')
+       | sed 's#<#\\u003c#g')   # aucun « < » brut dans les données : rien ne peut fermer la balise <script>
 
 tmp="$out.$$.tmp"
 {
@@ -223,6 +241,47 @@ cat <<'TF_HTML_END'
   .steps-num li { counter-increment: n; display: grid; grid-template-columns: 28px 1fr; gap: 10px; color: var(--text-2); }
   .steps-num li::before { content: counter(n); width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 650; font-size: 13px; }
   .faq dt { font-weight: 580; margin-top: 12px; } .faq dd { margin: 4px 0 0; color: var(--text-2); }
+  /* Documents */
+  .doc-view { display: grid; grid-template-columns: 1fr 220px; gap: 24px; align-items: start; }
+  .doc-toc { position: sticky; top: 24px; font-size: 13px; display: grid; gap: 2px; max-height: 80vh; overflow: auto; }
+  .doc-toc a { text-decoration: none; color: var(--text-2); padding: 4px 8px; border-radius: 6px; }
+  .doc-toc a:hover { background: var(--surface); color: var(--text); }
+  .doc-toc a.h3 { padding-left: 18px; }
+  .md { padding: 28px 32px; font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; }
+  .md h1, .md h2, .md h3, .md h4 { letter-spacing: -.01em; line-height: 1.3; margin: 1.6em 0 .5em; scroll-margin-top: 20px; }
+  .md h1 { font-size: 24px; margin-top: 0; } .md h2 { font-size: 19px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .md h3 { font-size: 16px; } .md h4 { font-size: 14px; }
+  .md p, .md ul, .md ol, .md blockquote, .md pre, .md table { margin: 0 0 14px; }
+  .md ul, .md ol { padding-left: 22px; } .md li { margin: 3px 0; }
+  .md code { background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--text); white-space: normal; }
+  .md pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow-x: auto; }
+  .md pre code { background: none; border: none; padding: 0; white-space: pre; }
+  .md blockquote { border-left: 3px solid var(--accent); padding: 4px 14px; color: var(--text-2); background: var(--surface-2); border-radius: 0 8px 8px 0; }
+  .md table { display: block; overflow-x: auto; } .md th { text-transform: none; font-size: 13px; letter-spacing: 0; color: var(--text); background: var(--surface-2); }
+  .md hr { border: none; border-top: 1px solid var(--line); margin: 22px 0; }
+  .md a { color: var(--accent); }
+  .doc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+  .doclink { text-decoration: none; } .doclink:hover span:first-of-type { color: var(--accent); }
+  /* Répondre à une validation */
+  .reply { margin-top: 14px; padding: 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); display: grid; gap: 12px; }
+  .reply-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .reply-choices button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px;
+                          border: 1px solid var(--line); background: var(--surface); font-size: 14px; font-weight: 520; }
+  .reply-choices button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .reply textarea { width: 100%; min-height: 84px; resize: vertical; border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+                    color: var(--text); padding: 10px 12px; font: inherit; }
+  .reply pre { margin: 0; white-space: pre-wrap; font-size: 13px; background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { color: #fff; opacity: .92; }
+  :root[data-theme="dark"] .btn.primary { color: #0b0d12; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0b0d12; } }
+  .copied { color: var(--emerald); font-size: 13px; font-weight: 560; }
+  @media print {
+    aside, .no-print, .back, .doc-toc, .doc-actions { display: none !important; }
+    .app { display: block; background: #fff; } main { padding: 0; max-width: none; }
+    body { background: #fff; color: #000; } .card { box-shadow: none; border: none; } .md { padding: 0; }
+    .doc-view { display: block; } .md pre, .md code { background: #f5f5f5; }
+  }
   @media (max-width: 900px) {
     .app { grid-template-columns: 1fr; background: var(--bg); }
     aside { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 16px; }
@@ -230,6 +289,7 @@ cat <<'TF_HTML_END'
     .theme-mobile { display: inline-flex; margin-left: auto; }
     main { padding: 22px 16px 40px; } .two-cols, .doc { grid-template-columns: 1fr; } .toc { position: static; display: none; }
     .action { grid-template-columns: auto 1fr; } .action .btn { grid-column: 1 / -1; justify-self: start; }
+    .doc-view { grid-template-columns: 1fr; } .doc-toc { display: none; } .md { padding: 20px 18px; }
   }
 </style>
 </head>
@@ -254,7 +314,7 @@ printf '%s\n' "$data"
 cat <<'TF_HTML_END'
 </script>
 <script>
-const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3\" rx=\"1\" /> <rect width=\"7\" height=\"5\" x=\"14\" y=\"3\" rx=\"1\" /> <rect width=\"7\" height=\"9\" x=\"14\" y=\"12\" rx=\"1\" /> <rect width=\"7\" height=\"5\" x=\"3\" y=\"16\" rx=\"1\" />", "folder-kanban": "<path d=\"M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z\" /> <path d=\"M8 10v4\" /> <path d=\"M12 10v2\" /> <path d=\"M16 10v6\" />", "book-open": "<path d=\"M12 7v14\" /> <path d=\"M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z\" />", "git-branch": "<line x1=\"6\" x2=\"6\" y1=\"3\" y2=\"15\" /> <circle cx=\"18\" cy=\"6\" r=\"3\" /> <circle cx=\"6\" cy=\"18\" r=\"3\" /> <path d=\"M18 9a9 9 0 0 1-9 9\" />", "file-text": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M10 9H8\" /> <path d=\"M16 13H8\" /> <path d=\"M16 17H8\" />", "circle-pause": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <line x1=\"10\" x2=\"10\" y1=\"15\" y2=\"9\" /> <line x1=\"14\" x2=\"14\" y1=\"15\" y2=\"9\" />", "compass": "<path d=\"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z\" /> <circle cx=\"12\" cy=\"12\" r=\"10\" />", "code": "<polyline points=\"16 18 22 12 16 6\" /> <polyline points=\"8 6 2 12 8 18\" />", "flask-conical": "<path d=\"M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2\" /> <path d=\"M8.5 2h7\" /> <path d=\"M7 16h10\" />", "search-check": "<path d=\"m8 11 2 2 4-4\" /> <circle cx=\"11\" cy=\"11\" r=\"8\" /> <path d=\"m21 21-4.3-4.3\" />", "git-commit-horizontal": "<circle cx=\"12\" cy=\"12\" r=\"3\" /> <line x1=\"3\" x2=\"9\" y1=\"12\" y2=\"12\" /> <line x1=\"15\" x2=\"21\" y1=\"12\" y2=\"12\" />", "git-pull-request": "<circle cx=\"18\" cy=\"18\" r=\"3\" /> <circle cx=\"6\" cy=\"6\" r=\"3\" /> <path d=\"M13 6h3a2 2 0 0 1 2 2v7\" /> <line x1=\"6\" x2=\"6\" y1=\"9\" y2=\"21\" />", "bug": "<path d=\"m8 2 1.88 1.88\" /> <path d=\"M14.12 3.88 16 2\" /> <path d=\"M9 7.13v-1a3.003 3.003 0 1 1 6 0v1\" /> <path d=\"M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6\" /> <path d=\"M12 20v-9\" /> <path d=\"M6.53 9C4.6 8.8 3 7.1 3 5\" /> <path d=\"M6 13H2\" /> <path d=\"M3 21c0-2.1 1.7-3.9 3.8-4\" /> <path d=\"M20.97 5c0 2.1-1.6 3.8-3.5 4\" /> <path d=\"M22 13h-4\" /> <path d=\"M17.2 17c2.1.1 3.8 1.9 3.8 4\" />", "hammer": "<path d=\"m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9\" /> <path d=\"m18 15 4-4\" /> <path d=\"m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5\" />", "circle-check-big": "<path d=\"M21.801 10A10 10 0 1 1 17 3.335\" /> <path d=\"m9 11 3 3L22 4\" />", "loader-circle": "<path d=\"M21 12a9 9 0 1 1-6.219-8.56\" />", "lock-keyhole": "<circle cx=\"12\" cy=\"16\" r=\"1\" /> <rect x=\"3\" y=\"10\" width=\"18\" height=\"12\" rx=\"2\" /> <path d=\"M7 10V7a5 5 0 0 1 10 0v3\" />", "message-circle-question": "<path d=\"M7.9 20A9 9 0 1 0 4 16.1L2 22Z\" /> <path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\" /> <path d=\"M12 17h.01\" />", "bot": "<path d=\"M12 8V4H8\" /> <rect width=\"16\" height=\"12\" x=\"4\" y=\"8\" rx=\"2\" /> <path d=\"M2 14h2\" /> <path d=\"M20 14h2\" /> <path d=\"M15 13v2\" /> <path d=\"M9 13v2\" />", "play": "<polygon points=\"6 3 20 12 6 21 6 3\" />", "square": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" />", "moon-star": "<path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" />", "triangle-alert": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />", "bell": "<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\" /> <path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\" />", "sparkles": "<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" /> <path d=\"M4 17v2\" /> <path d=\"M5 18H3\" />", "history": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\" /> <path d=\"M3 3v5h5\" /> <path d=\"M12 7v5l4 2\" />", "list-checks": "<path d=\"m3 17 2 2 4-4\" /> <path d=\"m3 7 2 2 4-4\" /> <path d=\"M13 6h8\" /> <path d=\"M13 12h8\" /> <path d=\"M13 18h8\" />", "terminal": "<polyline points=\"4 17 10 11 4 5\" /> <line x1=\"12\" x2=\"20\" y1=\"19\" y2=\"19\" />", "users-round": "<path d=\"M18 21a8 8 0 0 0-16 0\" /> <circle cx=\"10\" cy=\"8\" r=\"5\" /> <path d=\"M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3\" />", "layers": "<path d=\"m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z\" /> <path d=\"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65\" /> <path d=\"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65\" />", "settings-2": "<path d=\"M20 7h-9\" /> <path d=\"M14 17H5\" /> <circle cx=\"17\" cy=\"17\" r=\"3\" /> <circle cx=\"7\" cy=\"7\" r=\"3\" />", "shield-check": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\" /> <path d=\"m9 12 2 2 4-4\" />", "cloud-upload": "<path d=\"M12 13v8\" /> <path d=\"M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242\" /> <path d=\"m8 17 4-4 4 4\" />", "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <polyline points=\"12 6 12 12 16 14\" />", "check": "<path d=\"M20 6 9 17l-5-5\" />", "life-buoy": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m4.93 4.93 4.24 4.24\" /> <path d=\"m14.83 9.17 4.24-4.24\" /> <path d=\"m14.83 14.83 4.24 4.24\" /> <path d=\"m9.17 14.83-4.24 4.24\" /> <circle cx=\"12\" cy=\"12\" r=\"4\" />", "workflow": "<rect width=\"8\" height=\"8\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M7 11v4a2 2 0 0 0 2 2h4\" /> <rect width=\"8\" height=\"8\" x=\"13\" y=\"13\" rx=\"2\" />", "hand": "<path d=\"M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2\" /> <path d=\"M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2\" /> <path d=\"M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8\" /> <path d=\"M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15\" />", "server": "<rect width=\"20\" height=\"8\" x=\"2\" y=\"2\" rx=\"2\" ry=\"2\" /> <rect width=\"20\" height=\"8\" x=\"2\" y=\"14\" rx=\"2\" ry=\"2\" /> <line x1=\"6\" x2=\"6.01\" y1=\"6\" y2=\"6\" /> <line x1=\"6\" x2=\"6.01\" y1=\"18\" y2=\"18\" />", "monitor-smartphone": "<path d=\"M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8\" /> <path d=\"M10 19v-3.96 3.15\" /> <path d=\"M7 19h5\" /> <rect width=\"6\" height=\"10\" x=\"16\" y=\"12\" rx=\"2\" />", "arrow-right": "<path d=\"M5 12h14\" /> <path d=\"m12 5 7 7-7 7\" />", "folder": "<path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\" />", "rocket": "<path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z\" /> <path d=\"m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z\" /> <path d=\"M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0\" /> <path d=\"M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5\" />", "plug": "<path d=\"M12 22v-5\" /> <path d=\"M9 8V2\" /> <path d=\"M15 8V2\" /> <path d=\"M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z\" />", "palette": "<circle cx=\"13.5\" cy=\"6.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"17.5\" cy=\"10.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"8.5\" cy=\"7.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"6.5\" cy=\"12.5\" r=\".5\" fill=\"currentColor\" /> <path d=\"M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z\" />", "circle": "<circle cx=\"12\" cy=\"12\" r=\"10\" />", "info": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 16v-4\" /> <path d=\"M12 8h.01\" />", "file-search": "<path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3\" /> <path d=\"m9 18-1.5-1.5\" /> <circle cx=\"5\" cy=\"14\" r=\"3\" />", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\" /> <path d=\"M12 2v2\" /> <path d=\"M12 20v2\" /> <path d=\"m4.93 4.93 1.41 1.41\" /> <path d=\"m17.66 17.66 1.41 1.41\" /> <path d=\"M2 12h2\" /> <path d=\"M20 12h2\" /> <path d=\"m6.34 17.66-1.41 1.41\" /> <path d=\"m19.07 4.93-1.41 1.41\" />", "moon": "<path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z\" />"};
+const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3\" rx=\"1\" /> <rect width=\"7\" height=\"5\" x=\"14\" y=\"3\" rx=\"1\" /> <rect width=\"7\" height=\"9\" x=\"14\" y=\"12\" rx=\"1\" /> <rect width=\"7\" height=\"5\" x=\"3\" y=\"16\" rx=\"1\" />", "folder-kanban": "<path d=\"M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z\" /> <path d=\"M8 10v4\" /> <path d=\"M12 10v2\" /> <path d=\"M16 10v6\" />", "book-open": "<path d=\"M12 7v14\" /> <path d=\"M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z\" />", "git-branch": "<line x1=\"6\" x2=\"6\" y1=\"3\" y2=\"15\" /> <circle cx=\"18\" cy=\"6\" r=\"3\" /> <circle cx=\"6\" cy=\"18\" r=\"3\" /> <path d=\"M18 9a9 9 0 0 1-9 9\" />", "file-text": "<path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M10 9H8\" /> <path d=\"M16 13H8\" /> <path d=\"M16 17H8\" />", "circle-pause": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <line x1=\"10\" x2=\"10\" y1=\"15\" y2=\"9\" /> <line x1=\"14\" x2=\"14\" y1=\"15\" y2=\"9\" />", "compass": "<path d=\"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z\" /> <circle cx=\"12\" cy=\"12\" r=\"10\" />", "code": "<polyline points=\"16 18 22 12 16 6\" /> <polyline points=\"8 6 2 12 8 18\" />", "flask-conical": "<path d=\"M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2\" /> <path d=\"M8.5 2h7\" /> <path d=\"M7 16h10\" />", "search-check": "<path d=\"m8 11 2 2 4-4\" /> <circle cx=\"11\" cy=\"11\" r=\"8\" /> <path d=\"m21 21-4.3-4.3\" />", "git-commit-horizontal": "<circle cx=\"12\" cy=\"12\" r=\"3\" /> <line x1=\"3\" x2=\"9\" y1=\"12\" y2=\"12\" /> <line x1=\"15\" x2=\"21\" y1=\"12\" y2=\"12\" />", "git-pull-request": "<circle cx=\"18\" cy=\"18\" r=\"3\" /> <circle cx=\"6\" cy=\"6\" r=\"3\" /> <path d=\"M13 6h3a2 2 0 0 1 2 2v7\" /> <line x1=\"6\" x2=\"6\" y1=\"9\" y2=\"21\" />", "bug": "<path d=\"m8 2 1.88 1.88\" /> <path d=\"M14.12 3.88 16 2\" /> <path d=\"M9 7.13v-1a3.003 3.003 0 1 1 6 0v1\" /> <path d=\"M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6\" /> <path d=\"M12 20v-9\" /> <path d=\"M6.53 9C4.6 8.8 3 7.1 3 5\" /> <path d=\"M6 13H2\" /> <path d=\"M3 21c0-2.1 1.7-3.9 3.8-4\" /> <path d=\"M20.97 5c0 2.1-1.6 3.8-3.5 4\" /> <path d=\"M22 13h-4\" /> <path d=\"M17.2 17c2.1.1 3.8 1.9 3.8 4\" />", "hammer": "<path d=\"m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9\" /> <path d=\"m18 15 4-4\" /> <path d=\"m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5\" />", "circle-check-big": "<path d=\"M21.801 10A10 10 0 1 1 17 3.335\" /> <path d=\"m9 11 3 3L22 4\" />", "loader-circle": "<path d=\"M21 12a9 9 0 1 1-6.219-8.56\" />", "lock-keyhole": "<circle cx=\"12\" cy=\"16\" r=\"1\" /> <rect x=\"3\" y=\"10\" width=\"18\" height=\"12\" rx=\"2\" /> <path d=\"M7 10V7a5 5 0 0 1 10 0v3\" />", "message-circle-question": "<path d=\"M7.9 20A9 9 0 1 0 4 16.1L2 22Z\" /> <path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\" /> <path d=\"M12 17h.01\" />", "bot": "<path d=\"M12 8V4H8\" /> <rect width=\"16\" height=\"12\" x=\"4\" y=\"8\" rx=\"2\" /> <path d=\"M2 14h2\" /> <path d=\"M20 14h2\" /> <path d=\"M15 13v2\" /> <path d=\"M9 13v2\" />", "play": "<polygon points=\"6 3 20 12 6 21 6 3\" />", "square": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" />", "moon-star": "<path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" />", "triangle-alert": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />", "bell": "<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\" /> <path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\" />", "sparkles": "<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" /> <path d=\"M4 17v2\" /> <path d=\"M5 18H3\" />", "history": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\" /> <path d=\"M3 3v5h5\" /> <path d=\"M12 7v5l4 2\" />", "list-checks": "<path d=\"m3 17 2 2 4-4\" /> <path d=\"m3 7 2 2 4-4\" /> <path d=\"M13 6h8\" /> <path d=\"M13 12h8\" /> <path d=\"M13 18h8\" />", "terminal": "<polyline points=\"4 17 10 11 4 5\" /> <line x1=\"12\" x2=\"20\" y1=\"19\" y2=\"19\" />", "users-round": "<path d=\"M18 21a8 8 0 0 0-16 0\" /> <circle cx=\"10\" cy=\"8\" r=\"5\" /> <path d=\"M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3\" />", "layers": "<path d=\"m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z\" /> <path d=\"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65\" /> <path d=\"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65\" />", "settings-2": "<path d=\"M20 7h-9\" /> <path d=\"M14 17H5\" /> <circle cx=\"17\" cy=\"17\" r=\"3\" /> <circle cx=\"7\" cy=\"7\" r=\"3\" />", "shield-check": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\" /> <path d=\"m9 12 2 2 4-4\" />", "cloud-upload": "<path d=\"M12 13v8\" /> <path d=\"M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242\" /> <path d=\"m8 17 4-4 4 4\" />", "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <polyline points=\"12 6 12 12 16 14\" />", "check": "<path d=\"M20 6 9 17l-5-5\" />", "life-buoy": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m4.93 4.93 4.24 4.24\" /> <path d=\"m14.83 9.17 4.24-4.24\" /> <path d=\"m14.83 14.83 4.24 4.24\" /> <path d=\"m9.17 14.83-4.24 4.24\" /> <circle cx=\"12\" cy=\"12\" r=\"4\" />", "workflow": "<rect width=\"8\" height=\"8\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"M7 11v4a2 2 0 0 0 2 2h4\" /> <rect width=\"8\" height=\"8\" x=\"13\" y=\"13\" rx=\"2\" />", "hand": "<path d=\"M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2\" /> <path d=\"M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2\" /> <path d=\"M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8\" /> <path d=\"M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15\" />", "server": "<rect width=\"20\" height=\"8\" x=\"2\" y=\"2\" rx=\"2\" ry=\"2\" /> <rect width=\"20\" height=\"8\" x=\"2\" y=\"14\" rx=\"2\" ry=\"2\" /> <line x1=\"6\" x2=\"6.01\" y1=\"6\" y2=\"6\" /> <line x1=\"6\" x2=\"6.01\" y1=\"18\" y2=\"18\" />", "monitor-smartphone": "<path d=\"M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8\" /> <path d=\"M10 19v-3.96 3.15\" /> <path d=\"M7 19h5\" /> <rect width=\"6\" height=\"10\" x=\"16\" y=\"12\" rx=\"2\" />", "arrow-right": "<path d=\"M5 12h14\" /> <path d=\"m12 5 7 7-7 7\" />", "folder": "<path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\" />", "rocket": "<path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z\" /> <path d=\"m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z\" /> <path d=\"M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0\" /> <path d=\"M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5\" />", "plug": "<path d=\"M12 22v-5\" /> <path d=\"M9 8V2\" /> <path d=\"M15 8V2\" /> <path d=\"M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z\" />", "palette": "<circle cx=\"13.5\" cy=\"6.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"17.5\" cy=\"10.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"8.5\" cy=\"7.5\" r=\".5\" fill=\"currentColor\" /> <circle cx=\"6.5\" cy=\"12.5\" r=\".5\" fill=\"currentColor\" /> <path d=\"M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z\" />", "circle": "<circle cx=\"12\" cy=\"12\" r=\"10\" />", "info": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M12 16v-4\" /> <path d=\"M12 8h.01\" />", "file-search": "<path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3\" /> <path d=\"m9 18-1.5-1.5\" /> <circle cx=\"5\" cy=\"14\" r=\"3\" />", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\" /> <path d=\"M12 2v2\" /> <path d=\"M12 20v2\" /> <path d=\"m4.93 4.93 1.41 1.41\" /> <path d=\"m17.66 17.66 1.41 1.41\" /> <path d=\"M2 12h2\" /> <path d=\"M20 12h2\" /> <path d=\"m6.34 17.66-1.41 1.41\" /> <path d=\"m19.07 4.93-1.41 1.41\" />", "moon": "<path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z\" />", "printer": "<path d=\"M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2\" /> <path d=\"M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6\" /> <rect x=\"6\" y=\"14\" width=\"12\" height=\"8\" rx=\"1\" />", "external-link": "<path d=\"M15 3h6v6\" /> <path d=\"M10 14 21 3\" /> <path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\" />", "copy": "<rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\" /> <path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\" />", "smartphone": "<rect width=\"14\" height=\"20\" x=\"5\" y=\"2\" rx=\"2\" ry=\"2\" /> <path d=\"M12 18h.01\" />", "reply": "<polyline points=\"9 17 4 12 9 7\" /> <path d=\"M20 18v-2a4 4 0 0 0-4-4H4\" />", "pencil-line": "<path d=\"M12 20h9\" /> <path d=\"M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z\" /> <path d=\"m15 5 3 3\" />", "check-check": "<path d=\"M18 6 7 17l-5-5\" /> <path d=\"m22 10-7.5 7.5L13 16\" />", "arrow-left": "<path d=\"m12 19-7-7 7-7\" /> <path d=\"M19 12H5\" />", "file-pen": "<path d=\"M12.5 22H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v9.5\" /> <path d=\"M14 2v4a2 2 0 0 0 2 2h4\" /> <path d=\"M13.378 15.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z\" />"};
 (function () {
   'use strict';
   const D = JSON.parse(document.getElementById('data').textContent);
@@ -273,6 +333,76 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
   const AGENTS = { 'spec-writer': 'la rédactrice de specs', architect: 'l\'architecte', 'backend-dev': 'le développeur backend',
     'frontend-dev': 'le développeur frontend', 'test-writer': 'l\'auteur des tests', reviewer: 'le relecteur' };
   const agentName = a => (a || '').replace(/^.*:/, '');
+
+
+  // ---------- Markdown → HTML (tout le texte est échappé : aucun HTML d'un document ne s'exécute) ----------
+  function inlineMd(t) {
+    return t.split(/(`[^`]+`)/).map(part => {
+      if (/^`[^`]+`$/.test(part)) return '<code>' + esc(part.slice(1, -1)) + '</code>';
+      let h = esc(part);
+      h = h.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+|#[^)\s]*)\)/g, (m0, txt, url) => `<a href="${url}"${url[0] === '#' ? '' : ' target="_blank" rel="noopener noreferrer"'}>${txt}</a>`);
+      h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/__([^_]+)__/g, '<strong>$1</strong>');
+      h = h.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>').replace(/(^|[\s(])_([^_\s][^_]*)_(?=[\s.,;:!?)]|$)/g, '$1<em>$2</em>');
+      return h;
+    }).join('');
+  }
+  function renderMd(src) {
+    const lines = String(src || '').replace(/\r/g, '').split('\n');
+    const out = [], toc = [];
+    let i = 0, n = 0;
+    const slug = () => 'h-' + (++n);
+    const isTableSep = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
+    const cells = l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => inlineMd(c.trim()));
+    while (i < lines.length) {
+      const l = lines[i];
+      if (/^\s*```/.test(l)) {
+        const buf = []; i++;
+        while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]);
+        i++; out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>'); continue;
+      }
+      let m = l.match(/^(#{1,6})\s+(.*)$/);
+      if (m) {
+        const lvl = m[1].length, id = slug(), txt = m[2].replace(/\s+#+\s*$/, '');
+        if (lvl <= 3) toc.push({ lvl, id, txt: txt.replace(/[`*_]/g, '') });
+        out.push(`<h${lvl} id="${id}">${inlineMd(txt)}</h${lvl}>`); i++; continue;
+      }
+      if (/^\s*([-*_])\s*\1\s*\1[\s\1]*$/.test(l)) { out.push('<hr>'); i++; continue; }
+      if (/\|/.test(l) && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+        const head = cells(l); i += 2; const rows = [];
+        while (i < lines.length && /\|/.test(lines[i]) && lines[i].trim()) rows.push(cells(lines[i++]));
+        out.push('<table><thead><tr>' + head.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>' +
+                 rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') + '</tbody></table>');
+        continue;
+      }
+      if (/^\s*>/.test(l)) {
+        const buf = [];
+        while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ''));
+        out.push('<blockquote>' + renderMd(buf.join('\n')).html + '</blockquote>'); continue;
+      }
+      if (/^\s*([-*+]|\d+[.)])\s+/.test(l)) {
+        const stack = [];
+        while (i < lines.length && (/^\s*([-*+]|\d+[.)])\s+/.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && stack.length))) {
+          const li = lines[i];
+          const mm = li.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+          if (!mm) { out.push(' ' + inlineMd(li.trim())); i++; continue; }
+          const ind = mm[1].replace(/\t/g, '  ').length, tag = /\d/.test(mm[2]) ? 'ol' : 'ul';
+          while (stack.length && ind < stack[stack.length - 1].ind) out.push('</li></' + stack.pop().tag + '>');
+          if (!stack.length || ind > stack[stack.length - 1].ind) { out.push('<' + tag + '>'); stack.push({ ind, tag }); }
+          else out.push('</li>');
+          out.push('<li>' + inlineMd(mm[3].replace(/^\[ \]\s/, '☐ ').replace(/^\[x\]\s/i, '☑ ')));
+          i++;
+        }
+        while (stack.length) out.push('</li></' + stack.pop().tag + '>');
+        continue;
+      }
+      if (!l.trim()) { i++; continue; }
+      const buf = [];
+      while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|\s*```|\s*>|\s*([-*+]|\d+[.)])\s+)/.test(lines[i]) &&
+             !(/\|/.test(lines[i]) && i + 1 < lines.length && isTableSep(lines[i + 1]))) buf.push(lines[i++].trim());
+      out.push('<p>' + inlineMd(buf.join(' ')) + '</p>');
+    }
+    return { html: out.join(''), toc };
+  }
 
   // ---------- Process d'une feature ----------
   const FEATURE = [
@@ -399,6 +529,70 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     }
   }
 
+
+  // ---------- Répondre à une validation (réponse prête à copier dans la session Claude) ----------
+  const REPLIES = {
+    spec: { what: 'la spec', ok: 'Spec validée. Tu peux lancer l\'architecte.',
+            notes: 'Spec validée avec ces remarques, à reporter dans la section « Décisions » avant de lancer l\'architecte :\n',
+            fix: 'Corrige d\'abord la spec, puis présente-la-moi de nouveau :\n' },
+    plan: { what: 'le plan technique', ok: 'Plan validé. Enregistre-le et lance l\'implémentation.',
+            notes: 'Plan validé avec ces décisions, à reporter dans le plan avant de lancer l\'implémentation :\n',
+            fix: 'Le plan doit être revu avant l\'implémentation :\n' },
+    review: { what: 'le verdict de la revue', ok: 'Verdict accepté : commite au format Conventional Commits, sans pousser.',
+              notes: 'Verdict accepté. Avant de commiter, corrige seulement ces points, puis revue rapide et nouveau verdict :\n',
+              fix: 'Ne commite pas. Corrige ces points, puis revue rapide et nouveau verdict :\n' },
+    other: { what: 'la proposition de Claude', ok: 'C\'est validé, tu peux continuer.',
+             notes: 'Validé, avec ces remarques :\n', fix: 'Pas encore. Reprends ces points :\n' },
+  };
+  function docFor(p, f, gate) {
+    if (!f) return -1;
+    const slug = f.branch.replace(/^[^/]+\//, '').toLowerCase();
+    const docs = p.docs || [];
+    const want = gate === 'plan' ? d => /plan/i.test(d.name) : d => !/plan/i.test(d.name);
+    let i = docs.findIndex(d => d.name.toLowerCase().includes(slug) && want(d));
+    if (i < 0) i = docs.findIndex(d => /^docs\/specs\//.test(d.rel) && want(d));
+    return gate === 'review' ? -1 : i;
+  }
+  function replyPanel(p, f) {
+    const gate = f && f.waiting >= 0 ? f.model[f.waiting].id : 'other';
+    const R = REPLIES[gate] || REPLIES.other;
+    const di = docFor(p, f, gate);
+    return `<div class="reply no-print" data-gate="${gate}">
+      <div class="row between" style="flex-wrap:wrap"><b>${icon('reply')} Ta réponse</b>
+        ${di >= 0 ? `<a class="btn" href="#/projet/${encodeURIComponent(p.id)}/doc/${di}">${icon('file-text', 'sm')} Relire ${esc(R.what)}</a>` : ''}</div>
+      <div class="reply-choices">
+        <button type="button" data-choice="ok" aria-pressed="true">${icon('check-check', 'sm')} Valider et continuer</button>
+        <button type="button" data-choice="notes" aria-pressed="false">${icon('pencil-line', 'sm')} Valider avec remarques</button>
+        <button type="button" data-choice="fix" aria-pressed="false">${icon('reply', 'sm')} Demander des corrections</button>
+      </div>
+      <textarea placeholder="Tes remarques ou corrections, une par ligne…" hidden></textarea>
+      <pre class="reply-preview"></pre>
+      <div class="row" style="flex-wrap:wrap"><button type="button" class="btn primary" data-copy>${icon('copy', 'sm')} Copier la réponse</button>
+        <span class="copied" hidden>Copié ! Colle-la dans ta session Claude (Ctrl+V), puis Entrée.</span></div>
+      <span class="faint">Loin de ton ordinateur ? Avec <b>Remote Control</b> (<code>/remote-control</code> dans Claude Code), tu réponds depuis l'application Claude sur ton téléphone. Voir Documentation › Répondre à distance.</span>
+    </div>`;
+  }
+  function wireReplies() {
+    document.querySelectorAll('.reply').forEach(box => {
+      const R = REPLIES[box.dataset.gate] || REPLIES.other;
+      const ta = box.querySelector('textarea'), pv = box.querySelector('.reply-preview'), ok = box.querySelector('.copied');
+      let choice = 'ok';
+      const text = () => choice === 'ok' ? R.ok : R[choice] + (ta.value.trim() ? ta.value.trim().split('\n').map(x => '- ' + x.replace(/^\s*[-*]\s*/, '')).join('\n') : '- …');
+      const draw = () => { pv.textContent = text(); ta.hidden = choice === 'ok'; ok.hidden = true; };
+      box.querySelectorAll('[data-choice]').forEach(b => b.addEventListener('click', () => {
+        choice = b.dataset.choice; box.querySelectorAll('[data-choice]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); draw(); if (!ta.hidden) ta.focus();
+      }));
+      ta.addEventListener('input', draw);
+      box.querySelector('[data-copy]').addEventListener('click', async () => {
+        const t = text();
+        try { await navigator.clipboard.writeText(t); }
+        catch (e) { const tmp = document.createElement('textarea'); tmp.value = t; document.body.appendChild(tmp); tmp.select(); try { document.execCommand('copy'); } catch (e2) {} tmp.remove(); }
+        ok.hidden = false;
+      });
+      draw();
+    });
+  }
+
   // ---------- Rendu ----------
   const badge = (name, tone, size) => `<span class="badge tone-${tone}">${icon(name, size)}</span>`;
   const pill = (st) => `<span class="pill tone-${st.tone}">${icon(st.icon, 'sm')}${esc(st.label)}</span>`;
@@ -438,7 +632,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     <div class="stack">${todo.length ? todo.map(p => `<div class="card action">${badge(p.state.icon, p.state.tone)}
         <div><p class="what">${esc(p.name)} — ${esc(p.state.label)}</p><p class="muted">${sentence(p)}</p>
         ${p.last && p.last.detail ? `<p class="faint">« ${esc(p.last.detail)} »</p>` : ''}<p class="faint">${ago((p.last || {}).ts)}</p></div>
-        <a class="btn" href="#/projet/${encodeURIComponent(p.id)}">Voir le projet ${icon('arrow-right', 'sm')}</a></div>`).join('')
+        <a class="btn" href="#/projet/${encodeURIComponent(p.id)}">${p.key === 'validation' ? 'Répondre' : 'Voir le projet'} ${icon('arrow-right', 'sm')}</a></div>`).join('')
       : emptyBox('sparkles', 'Rien à faire pour toi', 'Tu seras prévenu dès qu\'une validation ou une autorisation sera nécessaire.')}</div>
     <h2 class="section">${icon('workflow')} Features en cours</h2>
     ${feats.length ? `<div class="grid-2">${feats.map(({ p, f }) => `<a class="card feature-mini" href="#/projet/${encodeURIComponent(p.id)}">
@@ -468,8 +662,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     const f = p.current || p.features[0];
     const lc = (p.lastCommit || '').split('|');
     let callout = '';
-    if (f && f.waiting >= 0) callout = `<div class="callout tone-amber">${icon('circle-pause')}<div><b>À toi : ${esc(f.model[f.waiting].gate)}.</b><br>Lis la proposition de Claude dans ta session, puis réponds pour qu'il continue.</div></div>`;
-    else if (p.key === 'permission') callout = `<div class="callout tone-amber">${icon('lock-keyhole')}<div><b>Claude attend ton autorisation.</b><br>${esc((p.last || {}).detail || '')}</div></div>`;
+    if (f && f.waiting >= 0) callout = `<div class="callout tone-amber">${icon('circle-pause')}<div><b>À toi : ${esc(f.model[f.waiting].gate)}.</b><br>Relis le document, choisis ta réponse ci-dessous, copie-la et colle-la dans ta session Claude.</div></div>` + replyPanel(p, f);
+    else if (p.key === 'validation') callout = `<div class="callout tone-amber">${icon('circle-pause')}<div><b>Claude attend ta validation.</b></div></div>` + replyPanel(p, null);
+    else if (p.key === 'permission') callout = `<div class="callout tone-amber">${icon('lock-keyhole')}<div><b>Claude attend ton autorisation.</b><br>${esc((p.last || {}).detail || '')}<br><span class="faint">Réponds à la demande dans ta session (ou depuis ton téléphone avec Remote Control).</span></div></div>`;
     else if (f && f.st.includes('active')) callout = `<div class="callout tone-sky">${icon('bot')}<div><b>${esc(f.current.label)} en cours.</b> ${esc(f.current.help || '')}</div></div>`;
     const others = p.features.filter(x => x !== f);
     return `<a class="back" href="#/projets">${icon('folder-kanban', 'sm')} Projets</a>
@@ -477,7 +672,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
     <p class="lead mono" style="font-size:13px">${esc(p.path)}</p>
     <h2 class="section">${icon('workflow')} ${f ? esc(f.kind) + ' : ' + esc(f.name) : 'Process'} ${f ? `<span class="hint">· ${f.done}/${f.total} étapes · <span class="mono">${esc(f.branch)}</span></span>` : ''}</h2>
     ${f ? `<div class="card process">${stepper(f)}${callout}</div>`
-      : emptyBox('workflow', 'Aucune feature en cours', `Le process s'affiche dès que tu travailles sur une branche de feature avec <code>${esc(P)}feature</code>.`)}
+      : (callout ? `<div class="card process">${callout}</div>` : emptyBox('workflow', 'Aucune feature en cours', `Le process s'affiche dès que tu travailles sur une branche de feature avec <code>${esc(P)}feature</code>.`))}
     <div class="two-cols" style="margin-top:14px">
       <div><h2 class="section">${icon('history')} Activité</h2>
         ${(p.events || []).length ? `<div class="card feed">${(p.events || []).filter(e => e.kind !== 'prompt').slice(-25).reverse().map(e => feedItem(e)).join('')}</div>` : emptyBox('history', 'Pas encore d\'activité', '')}</div>
@@ -486,10 +681,24 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
           <dt>Dernier commit</dt><dd>${lc[0] ? esc(lc[0]) + `<div class="faint">${fmt(lc[1])}</div>` : '—'}</dd>
           <dt>Architecture</dt><dd>${esc(p.architecture || '—')}</dd><dt>Backend</dt><dd class="mono">${esc(p.backend || '—')}</dd>
           <dt>Frontend</dt><dd class="mono">${esc(p.frontend == null ? 'aucun' : p.frontend)}</dd><dt>Kit</dt><dd>${p.kit ? 'v' + esc(p.kit) : '—'}</dd></dl>
-        <h2 class="section">${icon('file-text')} Specs et plans</h2>
-        ${(p.specs || []).length ? `<ul class="card list">${p.specs.map(s => `<li>${icon('file-text', 'sm')}<span>${esc(s.name)}</span><span class="faint" style="margin-left:auto">${fmt(new Date(s.mtime * 1000).toISOString())}</span></li>`).join('')}</ul>` : emptyBox('file-search', 'Aucune spec', 'Les specs et plans de <code>docs/specs</code> apparaîtront ici.')}
+        <h2 class="section">${icon('file-text')} Documents</h2>
+        ${(p.docs || []).length ? `<ul class="card list">${p.docs.map((d, k) => `<li><a class="doclink row" style="width:100%" href="#/projet/${encodeURIComponent(p.id)}/doc/${k}">${icon(/claude\.md$/i.test(d.name) ? 'book-open' : 'file-text', 'sm')}<span>${esc(/claude\.md$/i.test(d.name) ? 'Mémoire du projet (CLAUDE.md)' : d.name)}</span><span class="faint" style="margin-left:auto">${d.mtime ? fmt(new Date(d.mtime * 1000).toISOString()) : ''}</span></a></li>`).join('')}</ul>` : emptyBox('file-search', 'Aucun document', 'Les specs et plans de <code>docs/specs</code> et le <code>CLAUDE.md</code> apparaîtront ici.')}
         ${others.length ? `<h2 class="section">${icon('git-branch')} Autres branches</h2><ul class="card list">${others.map(o => `<li>${icon('git-branch', 'sm')}<span>${esc(o.name)}</span><span class="faint" style="margin-left:auto">${o.done}/${o.total} · ${ago(o.lastTs)}</span></li>`).join('')}</ul>` : ''}
       </div></div>`;
+  }
+
+  function viewDoc(id, k) {
+    const p = projects.find(x => x.id === id), d = p && (p.docs || [])[k];
+    if (!d) return `<a class="back" href="#/projets">${icon('arrow-left', 'sm')} Projets</a>${emptyBox('file-search', 'Document introuvable', 'Il a peut-être été renommé : reviens au projet.')}`;
+    const r = renderMd(d.content);
+    return `<a class="back" href="#/projet/${encodeURIComponent(p.id)}">${icon('arrow-left', 'sm')} ${esc(p.name)}</a>
+      <h1 class="page-title">${esc(/claude\.md$/i.test(d.name) ? 'Mémoire du projet' : d.name.replace(/\.md$/, ''))}</h1>
+      <p class="lead mono" style="font-size:13px">${esc(d.rel)} · modifié ${d.mtime ? fmt(new Date(d.mtime * 1000).toISOString()) : '—'}</p>
+      <div class="doc-actions"><button type="button" class="btn" onclick="window.print()">${icon('printer', 'sm')} Imprimer / PDF</button>
+        <a class="btn" href="${esc(d.url)}" target="_blank" rel="noopener">${icon('external-link', 'sm')} Ouvrir le fichier</a></div>
+      ${d.truncated ? `<div class="callout tone-amber">${icon('triangle-alert')}<div>Document tronqué à 200 Ko dans cette page : ouvre le fichier pour le lire en entier.</div></div>` : ''}
+      <div class="doc-view"><article class="card md">${r.html || '<p class="faint">Document vide.</p>'}</article>
+        ${r.toc.length > 2 ? `<nav class="doc-toc">${r.toc.map(t => `<a href="#" data-anchor="${t.id}" class="h${t.lvl}">${esc(t.txt)}</a>`).join('')}</nav>` : ''}</div>`;
   }
 
   function viewDocs() {
@@ -509,6 +718,7 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       <a href="#/docs" data-anchor="d-demarrer">Démarrer un projet</a><a href="#/docs" data-anchor="d-commandes">Commandes</a>
       <a href="#/docs" data-anchor="d-agents">Agents</a><a href="#/docs" data-anchor="d-gardefous">Garde-fous</a>
       <a href="#/docs" data-anchor="d-fichiers">Fichiers du projet</a><a href="#/docs" data-anchor="d-notifs">Notifications</a>
+      <a href="#/docs" data-anchor="d-repondre">Répondre à une validation</a>
       <a href="#/docs" data-anchor="d-depannage">Dépannage</a></nav>
     <div>
       <section id="d-principe" class="card block"><h3>Le principe</h3>
@@ -561,6 +771,17 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
         <ul class="list" style="padding:0"><li>${icon('monitor-smartphone', 'sm')} <span><b>Sur l'ordinateur</b> : notification du système (Windows, macOS, Linux) — <code>"desktop": true</code>.</span></li>
           <li>${icon('bell', 'sm')} <span><b>Sur le téléphone</b> : application <b>ntfy</b>, gratuite et sans compte. Choisis un sujet long et imprévisible, abonne-toi dans l'application, puis renseigne <code>"topic"</code>.</span></li>
           <li>${icon('shield-check', 'sm')} <span>Les notifications ne contiennent que le projet, l'étape et la branche : jamais de code ni de texte de Claude.</span></li></ul></section>
+      <section id="d-repondre" class="card block"><h3>Répondre à une validation</h3>
+        <p><b>Depuis ce tableau de bord.</b> Quand un projet attend ta validation, sa page affiche le document à relire (spec ou plan)
+        et trois réponses prêtes : « Valider et continuer », « Valider avec remarques », « Demander des corrections ». Tu écris tes
+        remarques si besoin, tu copies la réponse et tu la colles dans ta session Claude. La page ne parle jamais directement à
+        Claude : c'est toi qui envoies la réponse, rien ne part sans toi.</p>
+        <p><b>Depuis ton téléphone, avec Remote Control</b> (fonction officielle de Claude Code, abonnements Pro, Max, Team et Enterprise) :</p>
+        <ol class="steps-num">
+          <li><span>Dans ta session Claude Code, tape <code>/remote-control</code> (ou <code>/rc</code>) ; ou lance directement <code>claude --rc</code>. Accepte la confirmation la première fois.</span></li>
+          <li><span>Ouvre l'application Claude sur ton téléphone (ou claude.ai/code) : la session apparaît dans la liste. La session continue de tourner sur ton ordinateur.</span></li>
+          <li><span>Avec les notifications ntfy, tu es prévenu sur ton téléphone dès qu'une validation est requise : tu réponds directement dans l'application.</span></li>
+        </ol></section>
       <section id="d-depannage" class="card block"><h3>Dépannage</h3><dl class="faq">
           <dt>Sous PowerShell, <code>bash</code> lance WSL au lieu de Git Bash.</dt><dd>Utilise Git Bash, ou <code>&amp; "C:\\Program Files\\Git\\bin\\bash.exe"</code>.</dd>
           <dt>Des dizaines d'erreurs Testcontainers dans les tests.</dt><dd>Docker Desktop n'est pas démarré.</dd>
@@ -575,7 +796,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
   function render() {
     const h = location.hash || '#/';
     let html, active;
-    if (h.startsWith('#/projet/')) { html = viewProject(decodeURIComponent(h.slice(9))); active = 'projets'; }
+    const md = h.match(/^#\/projet\/([^/]+)\/doc\/(\d+)$/);
+    if (md) { html = viewDoc(decodeURIComponent(md[1]), +md[2]); active = 'projets'; }
+    else if (h.startsWith('#/projet/')) { html = viewProject(decodeURIComponent(h.slice(9))); active = 'projets'; }
     else if (h.startsWith('#/projets')) { html = viewProjects(); active = 'projets'; }
     else if (h.startsWith('#/docs')) { html = viewDocs(); active = 'docs'; }
     else { html = viewOverview(); active = 'home'; }
@@ -585,6 +808,8 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
       `<a href="#/docs" class="${active === 'docs' ? 'active' : ''}">${icon('book-open')} Documentation</a>`;
     document.getElementById('view').innerHTML = html;
     document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
+    wireReplies();
+    document.querySelectorAll('.doc-toc a').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); const t = document.getElementById(a.dataset.anchor); if (t) t.scrollIntoView({ behavior: 'smooth' }); }));
     document.querySelectorAll('.toc a').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); const t = document.getElementById(a.dataset.anchor); if (t) t.scrollIntoView({ behavior: 'smooth' }); }));
     document.title = (todo.length ? `(${todo.length}) ` : '') + 'Top Factory';
   }
@@ -614,7 +839,9 @@ const ICONS = {"layout-dashboard": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3
   try { const y = sessionStorage.getItem('tf-scroll'); if (y) { window.scrollTo(0, +y); sessionStorage.removeItem('tf-scroll'); } } catch (e) {}
   setInterval(() => {
     drawAuto();
-    if (!auto || document.visibilityState !== 'visible' || (location.hash || '').startsWith('#/docs')) return;
+    const hh = location.hash || '';
+    const typing = document.activeElement && document.activeElement.tagName === 'TEXTAREA';
+    if (!auto || typing || document.visibilityState !== 'visible' || hh.startsWith('#/docs') || /\/doc\//.test(hh)) return;
     try { sessionStorage.setItem('tf-scroll', String(window.scrollY)); } catch (e) {}
     location.reload();
   }, 15000);
